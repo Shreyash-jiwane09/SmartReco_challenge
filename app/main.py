@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.core.lifecycle import lifespan
 from app.core.metadata import APP_DESCRIPTION, APP_TITLE, OPENAPI_TAGS
 
 
@@ -16,5 +17,6 @@ app = FastAPI(
     redoc_url=settings.redoc_url,
     openapi_url=settings.openapi_url,
     openapi_tags=OPENAPI_TAGS,
+    lifespan=lifespan,
     debug=settings.debug,
 )
