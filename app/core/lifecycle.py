@@ -1,0 +1,12 @@
+"""FastAPI application lifecycle hooks."""
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Provide the application lifecycle extension point."""
+    yield
