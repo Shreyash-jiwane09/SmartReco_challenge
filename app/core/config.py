@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "SmartReco"
     app_version: str = "0.1.0"
-    environment: str = "development"
+    environment: Literal["development", "testing", "staging", "production"] = "development"
     debug: bool = False
 
     # API
@@ -32,26 +32,17 @@ class Settings(BaseSettings):
     openapi_url: str | None = "/openapi.json"
 
     # Database
-    database_url: str = "postgresql://smartreco:smartreco@localhost:5432/smartreco"
+    database_url: str
     database_echo: bool = False
-    database_pool_size: int = Field(default=5, ge=1)
-    database_max_overflow: int = Field(default=10, ge=0)
-    database_pool_timeout: int = Field(default=30, ge=1)
-    database_pool_recycle: int = Field(default=1800, ge=0)
 
     # Security
-    secret_key: str = Field(
-        default="change-this-development-key-before-deployment",
-        min_length=32,
-        repr=False,
-    )
+    secret_key: str = Field(min_length=32, repr=False)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=1)
     refresh_token_expire_days: int = Field(default=7, ge=1)
 
     # Logging
     log_level: str = "INFO"
-    log_format: str = "json"
 
     # CORS
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -78,3 +69,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return the process-wide cached application settings instance."""
     return Settings()
+
+settings = get_settings()j
