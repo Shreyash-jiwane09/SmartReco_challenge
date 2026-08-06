@@ -2,12 +2,18 @@
 
 from fastapi import FastAPI
 
-from app.core.config import get_settings
+from app.api.router import api_router
+from app.core.config import settings
 from app.core.lifecycle import lifespan
+from app.core.logging import configure_logging
 from app.core.metadata import APP_DESCRIPTION, APP_TITLE, OPENAPI_TAGS
+from app.middleware.logging import RequestLoggingMiddleware
+from app.middleware.security import SecurityHeadersMiddleware
+from app.middleware.timing import TimingMiddleware
+from app.utils.exceptions import register_exception_handlers
 
 
-settings = get_settings()
+configure_logging()
 
 app = FastAPI(
     title=APP_TITLE,
@@ -20,3 +26,11 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.debug,
 )
+
+register_exception_handlers(app)
+
+app.add_middleware(TimingMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+
+app.include_router(api_router)

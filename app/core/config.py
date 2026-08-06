@@ -70,4 +70,4 @@ def get_settings() -> Settings:
     """Return the process-wide cached application settings instance."""
     return Settings()
 
-settings = get_settings()j
+settings = get_settings()
