@@ -41,6 +41,29 @@ class BehaviorEvidence(BaseModel):
         return value
 
 
+class WeightedBehaviorSignal(BaseModel):
+    """A deterministic weighted signal derived from one behavioral event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    event_id: UUID
+    user_id: UUID
+    event_type: EventType
+    base_weight: float = Field(ge=0.0)
+    signal_value: float = Field(ge=0.0)
+    source: str = Field(min_length=1)
+    occurred_at: datetime
+    resource_id: str | None = Field(default=None, min_length=1, max_length=255)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at_timezone(cls, value: datetime) -> datetime:
+        """Require an explicit timezone, matching the event contract."""
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("occurred_at must be timezone-aware")
+        return value
+
+
 class RecentActivitySummary(BaseModel):
     """Aggregate behavioral activity for the configured profile window."""
 
