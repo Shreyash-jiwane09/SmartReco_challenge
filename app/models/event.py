@@ -48,7 +48,7 @@ class Event(Base):
         nullable=False,
         index=True,
     )
-    resource_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     resource_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     page_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     event_timestamp: Mapped[datetime] = mapped_column(

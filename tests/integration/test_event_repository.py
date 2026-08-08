@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.event import Event, EventType
@@ -53,6 +55,35 @@ def test_create_persists_event_flushes_without_committing(db_session: Session) -
     assert persisted.id is not None
     assert db_session.in_transaction()
     assert db_session.execute(select(Event).where(Event.id == event.id)).scalar_one() is event
+
+
+def test_create_persists_event_without_resource_type(db_session: Session) -> None:
+    user = _create_user(db_session, "no-resource@example.com")
+    repository = EventRepository(db_session)
+    event = _event(user, datetime.now(timezone.utc), event_type=EventType.SEARCH)
+    event.resource_type = None
+    event.resource_id = None
+
+    persisted = repository.create(event)
+
+    assert persisted.resource_type is None
+    assert persisted.resource_id is None
+
+
+def test_required_event_fields_remain_enforced(db_session: Session) -> None:
+    user = _create_user(db_session, "required-fields@example.com")
+    event = Event(
+        user_id=user.id,
+        session_id=None,
+        event_type=EventType.SEARCH,
+        resource_type=None,
+        event_timestamp=datetime.now(timezone.utc),
+        event_metadata={"query": "boots"},
+    )
+    db_session.add(event)
+
+    with pytest.raises(IntegrityError):
+        db_session.flush()
 
 
 def test_create_many_persists_input_events_without_committing(db_session: Session) -> None:
