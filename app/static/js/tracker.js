@@ -13,6 +13,9 @@
   let flushTimer = null;
   let flushScheduled = false;
   let isFlushing = false;
+  const productViewContexts = new Set();
+  let collectorsInitialized = false;
+  let timeTracking = null;
 
   function generateSessionId() {
     if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -216,11 +219,190 @@
     }
   }
 
-  window.document.addEventListener("visibilitychange", function () {
-    if (window.document.visibilityState === "hidden") {
-      flush({ keepalive: true });
+  function hasResourceContext(details) {
+    return Boolean(details && details.resourceType && details.resourceId);
+  }
+
+  function trackProductView(details) {
+    if (!hasResourceContext(details)) {
+      return null;
     }
-  });
+
+    const pageUrl = details.pageUrl || window.location.href;
+    const contextKey = details.resourceType + ":" + details.resourceId + ":" + pageUrl;
+    if (productViewContexts.has(contextKey)) {
+      return null;
+    }
+
+    productViewContexts.add(contextKey);
+    return track("PRODUCT_VIEW", {
+      resourceType: details.resourceType,
+      resourceId: details.resourceId,
+      pageUrl: pageUrl,
+      metadata: details.metadata || {},
+    });
+  }
+
+  function trackSearch(query, options) {
+    if (typeof query !== "string" || !query.trim()) {
+      return null;
+    }
+
+    const searchOptions = options || {};
+    return track("SEARCH", {
+      pageUrl: searchOptions.pageUrl,
+      metadata: { query: query.trim() },
+    });
+  }
+
+  function trackClick(details) {
+    if (!hasResourceContext(details)) {
+      return null;
+    }
+
+    return track("CLICK", {
+      resourceType: details.resourceType,
+      resourceId: details.resourceId,
+      pageUrl: details.pageUrl,
+      metadata: details.metadata || {},
+    });
+  }
+
+  function now() {
+    return window.performance.now();
+  }
+
+  function pauseTimeTracking() {
+    if (!timeTracking || timeTracking.activeStart === null) {
+      return;
+    }
+
+    timeTracking.elapsedMilliseconds += Math.max(0, now() - timeTracking.activeStart);
+    timeTracking.activeStart = null;
+  }
+
+  function resumeTimeTracking() {
+    if (timeTracking && timeTracking.activeStart === null) {
+      timeTracking.activeStart = now();
+    }
+  }
+
+  function startTimeTracking(details) {
+    if (timeTracking) {
+      return false;
+    }
+
+    const timeDetails = details || {};
+    timeTracking = {
+      resourceType: timeDetails.resourceType || null,
+      resourceId: timeDetails.resourceId || null,
+      pageUrl: timeDetails.pageUrl || window.location.href,
+      elapsedMilliseconds: 0,
+      activeStart: window.document.visibilityState === "hidden" ? null : now(),
+    };
+    return true;
+  }
+
+  function stopTimeTracking() {
+    if (!timeTracking) {
+      return null;
+    }
+
+    pauseTimeTracking();
+    const completedTracking = timeTracking;
+    timeTracking = null;
+
+    return track("TIME_SPENT", {
+      resourceType: completedTracking.resourceType,
+      resourceId: completedTracking.resourceId,
+      pageUrl: completedTracking.pageUrl,
+      metadata: { duration: completedTracking.elapsedMilliseconds / 1000 },
+    });
+  }
+
+  function getSearchQuery(form) {
+    const fieldName = form.getAttribute("data-track-search-field");
+    const field = fieldName
+      ? form.elements.namedItem(fieldName)
+      : form.querySelector("[data-track-search-query]");
+
+    return field && typeof field.value === "string" ? field.value : "";
+  }
+
+  function handleSearchSubmit(event) {
+    const form = event.target;
+    if (!form || !form.matches || !form.matches("[data-track-search]")) {
+      return;
+    }
+
+    try {
+      trackSearch(getSearchQuery(form));
+    } catch (error) {
+      // Tracking must never interrupt a normal search submission.
+    }
+  }
+
+  function handleTrackedClick(event) {
+    const target = event.target;
+    if (!target || typeof target.closest !== "function") {
+      return;
+    }
+
+    const trackedElement = target.closest("[data-track-click]");
+    if (!trackedElement) {
+      return;
+    }
+
+    try {
+      const action = trackedElement.getAttribute("data-track-click");
+      trackClick({
+        resourceType: trackedElement.getAttribute("data-resource-type"),
+        resourceId: trackedElement.getAttribute("data-resource-id"),
+        metadata: action ? { action: action } : {},
+      });
+    } catch (error) {
+      // Tracking must never interrupt click navigation or UI handling.
+    }
+  }
+
+  function initializeCollectors(options) {
+    const collectorOptions = options || {};
+
+    if (!collectorsInitialized) {
+      window.document.addEventListener("submit", handleSearchSubmit);
+      window.document.addEventListener("click", handleTrackedClick);
+      collectorsInitialized = true;
+    }
+
+    if (collectorOptions.productView) {
+      trackProductView(collectorOptions.productView);
+    }
+
+    if (collectorOptions.timeTracking) {
+      startTimeTracking(collectorOptions.timeTracking);
+    }
+  }
+
+  function destroyCollectors() {
+    if (collectorsInitialized) {
+      window.document.removeEventListener("submit", handleSearchSubmit);
+      window.document.removeEventListener("click", handleTrackedClick);
+      collectorsInitialized = false;
+    }
+
+    return stopTimeTracking();
+  }
+
+  function handleVisibilityChange() {
+    if (window.document.visibilityState === "hidden") {
+      pauseTimeTracking();
+      flush({ keepalive: true });
+    } else {
+      resumeTimeTracking();
+    }
+  }
+
+  window.document.addEventListener("visibilitychange", handleVisibilityChange);
 
   window.SmartRecoTracker = Object.freeze({
     configure: configure,
@@ -229,5 +411,12 @@
     getBufferSize: getBufferSize,
     takeBatch: takeBatch,
     flush: flush,
+    trackProductView: trackProductView,
+    trackSearch: trackSearch,
+    trackClick: trackClick,
+    startTimeTracking: startTimeTracking,
+    stopTimeTracking: stopTimeTracking,
+    initializeCollectors: initializeCollectors,
+    destroyCollectors: destroyCollectors,
   });
 })(window);
