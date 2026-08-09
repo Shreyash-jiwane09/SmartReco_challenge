@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RecommendedProduct(BaseModel):
@@ -43,3 +44,31 @@ class GeneratedRecommendation(BaseModel):
         if len(product_ids) != len(set(product_ids)):
             raise ValueError("recommendations must not contain duplicate product IDs")
         return self
+
+
+class RecommendationProductResponse(BaseModel):
+    """One persisted, ordered catalog selection in an API response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    product_id: UUID
+    reason: str
+    position: int
+
+
+class RecommendationResponse(BaseModel):
+    """A persisted recommendation available to its owning user."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    narrative: str
+    created_at: datetime
+    products: list[RecommendationProductResponse]
+
+
+class RecommendationGenerationResponse(BaseModel):
+    """The normal outcome of an authenticated generation attempt."""
+
+    status: str
+    recommendation: RecommendationResponse | None = None

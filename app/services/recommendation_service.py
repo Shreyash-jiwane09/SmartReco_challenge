@@ -51,6 +51,10 @@ class RecommendationService:
         self.recommendation_repository = recommendation_repository
         self.recommendation_graph = recommendation_graph
 
+    def get_latest_for_user(self, user_id: UUID) -> Recommendation | None:
+        """Return the most recent persisted recommendation for one user."""
+        return self.recommendation_repository.get_latest_for_user(user_id)
+
     def generate_for_user(
         self,
         user_id: UUID,
