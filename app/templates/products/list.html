@@ -6,7 +6,7 @@
     <p class="eyebrow">Product catalog</p>
     <h1>Find your next learning path</h1>
   </div>
-  <form action="/products" method="get" class="search-form" role="search">
+  <form action="/products" method="get" class="search-form" role="search" data-track-search data-track-search-field="query">
     <label class="sr-only" for="catalog-search">Search products</label>
     <input id="catalog-search" type="search" name="query" value="{{ query }}" placeholder="Search courses, topics, or categories">
     <button type="submit">Search</button>
@@ -17,9 +17,9 @@
     {% for product in products %}
     <article class="product-card">
       <p class="category">{{ product.category }}</p>
-      <h2><a href="/products/{{ product.id }}">{{ product.title }}</a></h2>
+      <h2><a href="/products/{{ product.id }}" data-track-click="product_detail" data-resource-type="product" data-resource-id="{{ product.id }}">{{ product.title }}</a></h2>
       <p>{{ product.description }}</p>
-      <div class="card-footer"><strong>${{ '%.2f'|format(product.price) }}</strong><a href="/products/{{ product.id }}">View product</a></div>
+      <div class="card-footer"><strong>${{ '%.2f'|format(product.price) }}</strong><a href="/products/{{ product.id }}" data-track-click="product_detail" data-resource-type="product" data-resource-id="{{ product.id }}">View product</a></div>
     </article>
     {% endfor %}
   </section>

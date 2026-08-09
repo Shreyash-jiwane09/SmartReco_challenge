@@ -105,3 +105,19 @@ def test_current_user_rejects_missing_credentials() -> None:
         get_current_user(None, Mock())
 
     assert exc_info.value.status_code == 401
+
+
+def test_current_user_is_resolved_from_the_browser_auth_cookie() -> None:
+    user = User(
+        id=uuid4(),
+        email="cookie-events@example.com",
+        hashed_password="hash",
+        full_name="Cookie Events",
+        is_active=True,
+    )
+    result = Mock()
+    result.scalar_one_or_none.return_value = user
+    session = Mock()
+    session.execute.return_value = result
+
+    assert get_current_user(None, session, create_access_token(str(user.id))) is user

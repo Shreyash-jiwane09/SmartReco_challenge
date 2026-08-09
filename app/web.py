@@ -17,14 +17,13 @@ from app.api.dependencies import (
     get_product_service,
 )
 from app.core.config import settings
-from app.core.security import create_access_token
+from app.core.security import AUTH_COOKIE_NAME, create_access_token
 from app.database.session import get_db
 from app.models.user import User
 from app.services.auth_service import AuthenticationService, InvalidCredentialsError
 from app.services.product import ProductNotFoundError, ProductService
 
 
-AUTH_COOKIE_NAME = "smartreco_access_token"
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 router = APIRouter(include_in_schema=False)
 
@@ -50,7 +49,13 @@ def _redirect_to_login() -> RedirectResponse:
 
 
 def _context(request: Request, user: User | None, **values: object) -> dict[str, object]:
-    return {"request": request, "current_user": user, **values}
+    return {
+        "request": request,
+        "current_user": user,
+        "tracking_product_view": None,
+        "tracking_time_spent": None,
+        **values,
+    }
 
 
 @router.get("/", name="home")
@@ -157,5 +162,17 @@ def product_detail(
     return templates.TemplateResponse(
         request,
         "products/detail.html",
-        _context(request, user, product=product),
+        _context(
+            request,
+            user,
+            product=product,
+            tracking_product_view={
+                "resourceType": "product",
+                "resourceId": str(product.id),
+            },
+            tracking_time_spent={
+                "resourceType": "product",
+                "resourceId": str(product.id),
+            },
+        ),
     )

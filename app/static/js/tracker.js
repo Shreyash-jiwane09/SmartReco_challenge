@@ -74,6 +74,7 @@
     runtimeConfig = {
       userId: config && config.userId,
       getAccessToken: config && config.getAccessToken,
+      useCookieAuth: Boolean(config && config.useCookieAuth),
     };
 
     if (eventBuffer.length > 0) {
@@ -114,14 +115,16 @@
   async function sendBatch(events, token, keepalive) {
     for (let attempt = 0; attempt <= TRACKER_CONFIG.maxRetries; attempt += 1) {
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (token) {
+          headers.Authorization = "Bearer " + token;
+        }
         const response = await window.fetch("/api/v1/events", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + token,
-          },
+          headers: headers,
           body: JSON.stringify(buildBatchPayload(events)),
           keepalive: keepalive,
+          credentials: "same-origin",
         });
 
         if (response.ok) {
@@ -187,7 +190,7 @@
 
     try {
       const token = await getAccessToken();
-      if (!token || !runtimeConfig.userId) {
+      if (!runtimeConfig || !runtimeConfig.userId || (!token && !runtimeConfig.useCookieAuth)) {
         eventBuffer.unshift.apply(eventBuffer, batch);
         batch = [];
         return false;
@@ -403,6 +406,10 @@
   }
 
   window.document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", function () {
+    stopTimeTracking();
+    flush({ keepalive: true });
+  });
 
   window.SmartRecoTracker = Object.freeze({
     configure: configure,

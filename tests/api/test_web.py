@@ -134,6 +134,24 @@ def test_authenticated_user_can_browse_real_catalog_products(platform_client) ->
     product_service.list_catalog_products.assert_called_once_with()
 
 
+def test_authenticated_catalog_loads_cookie_safe_tracking_and_product_click_metadata(
+    platform_client,
+) -> None:
+    client, _, _, product = platform_client
+    _login(client)
+
+    response = client.get("/products")
+
+    assert "static/js/tracker.js" in response.text
+    assert "static/js/app.js" in response.text
+    assert 'data-track-search' in response.text
+    assert 'data-track-click="product_detail"' in response.text
+    assert f'data-resource-id="{product.id}"' in response.text
+    assert "useCookieAuth: true" in response.text
+    assert "getAccessToken" not in response.text
+    assert "access_token" not in response.text
+
+
 def test_search_returns_matching_catalog_products(platform_client) -> None:
     client, _, product_service, product = platform_client
     _login(client)
@@ -143,6 +161,16 @@ def test_search_returns_matching_catalog_products(platform_client) -> None:
     assert response.status_code == 200
     assert product.title in response.text
     product_service.search_catalog_products.assert_called_once_with("agentic")
+
+
+def test_empty_catalog_query_does_not_initialize_a_search_event(platform_client) -> None:
+    client, _, _, _ = platform_client
+    _login(client)
+
+    response = client.get("/products")
+
+    assert response.status_code == 200
+    assert "trackingSearch" not in response.text
 
 
 def test_empty_search_results_render_a_valid_empty_state(platform_client) -> None:
@@ -165,6 +193,17 @@ def test_product_detail_renders_a_persisted_product(platform_client) -> None:
     assert response.status_code == 200
     assert product.title in response.text
     product_service.get_product.assert_called_once_with(product.id)
+
+
+def test_product_detail_configures_product_view_and_time_spent_tracking(platform_client) -> None:
+    client, _, _, product = platform_client
+    _login(client)
+
+    response = client.get(f"/products/{product.id}")
+
+    assert response.status_code == 200
+    assert f'"resourceId": "{product.id}"' in response.text
+    assert response.text.count('"resourceType": "product"') == 2
 
 
 def test_unknown_product_renders_not_found_page(platform_client) -> None:

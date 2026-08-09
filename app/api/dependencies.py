@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token
+from app.core.security import AUTH_COOKIE_NAME, decode_access_token
 from app.database.session import get_db
 from app.ai.agent.graph import build_recommendation_graph
 from app.ai.mesh.client import MeshRecommendationClient
@@ -94,9 +95,11 @@ def get_recommendation_service(
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
+    access_token: Annotated[str | None, Cookie(alias=AUTH_COOKIE_NAME)] = None,
 ) -> User:
-    """Resolve an active user from a valid bearer access token."""
-    if credentials is None:
+    """Resolve an active user from a bearer token or same-origin auth cookie."""
+    token = credentials.credentials if credentials is not None else access_token
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -104,7 +107,7 @@ def get_current_user(
         )
 
     try:
-        claims = decode_access_token(credentials.credentials)
+        claims = decode_access_token(token)
         user_id = uuid.UUID(claims["sub"])
     except (JWTError, ValueError, KeyError):
         raise HTTPException(

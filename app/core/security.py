@@ -14,6 +14,7 @@ from app.core.config import settings
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+AUTH_COOKIE_NAME = "smartreco_access_token"
 
 
 def hash_password(password: str) -> str:

@@ -8,7 +8,7 @@
     !tracker ||
     !context ||
     !context.userId ||
-    typeof context.getAccessToken !== "function"
+    (!context.useCookieAuth && typeof context.getAccessToken !== "function")
   ) {
     return;
   }
@@ -17,6 +17,7 @@
     tracker.configure({
       userId: context.userId,
       getAccessToken: context.getAccessToken,
+      useCookieAuth: context.useCookieAuth,
     });
     tracker.initializeCollectors({
       productView: context.productView,
