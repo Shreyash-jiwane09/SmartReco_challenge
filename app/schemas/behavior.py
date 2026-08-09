@@ -71,6 +71,34 @@ class DecayedBehaviorSignal(WeightedBehaviorSignal):
     decayed_value: float = Field(ge=0.0)
 
 
+class ProductInterestContext(BaseModel):
+    """Product details supplied to persistence-independent interest extraction."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str = Field(min_length=1, max_length=255)
+    category: str = Field(min_length=1, max_length=255)
+
+
+class InterestExtractionInput(BaseModel):
+    """Decayed signal with the optional context needed to derive interests."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    signal: DecayedBehaviorSignal
+    search_query: str | None = Field(default=None, min_length=1)
+    product: ProductInterestContext | None = None
+
+
+class InterestExtractionResult(BaseModel):
+    """Ranked interests and their explainable supporting evidence."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    interests: list[InterestScore]
+    evidence: list[BehaviorEvidence]
+
+
 class RecentActivitySummary(BaseModel):
     """Aggregate behavioral activity for the configured profile window."""
 

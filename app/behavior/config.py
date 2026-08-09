@@ -31,6 +31,9 @@ class BehaviorScoringConfig:
     minimum_trigger_events: int = 3
     trigger_score_threshold: float = 5.0
     cooldown_minutes: int = 30
+    search_interest_multiplier: float = 1.0
+    product_category_multiplier: float = 1.0
+    product_title_multiplier: float = 0.5
 
     def __post_init__(self) -> None:
         """Prevent mutation of weights, including on custom config instances."""
