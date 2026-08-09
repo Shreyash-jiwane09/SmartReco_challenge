@@ -49,6 +49,17 @@ class ProductService:
         """Return products from the repository."""
         return self.repository.list(offset=offset, limit=limit)
 
+    def list_catalog_products(self) -> list[Product]:
+        """Return active products available to regular catalog visitors."""
+        return self.repository.list_active()
+
+    def search_catalog_products(self, query: str) -> list[Product]:
+        """Search active catalog products without invoking recommendation retrieval."""
+        normalized_query = query.strip()
+        if not normalized_query:
+            return self.list_catalog_products()
+        return self.repository.search_active(normalized_query)
+
     def create_product(self, data: ProductCreate) -> Product:
         """Create and persist a product."""
         product = Product(

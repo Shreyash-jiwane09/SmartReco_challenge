@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sign in | SmartReco{% endblock %}
+{% block content %}
+<section class="auth-card" aria-labelledby="login-title">
+  <p class="eyebrow">Behavior-driven recommendations</p>
+  <h1 id="login-title">Welcome to SmartReco</h1>
+  <p>Sign in to explore products tailored to what you discover.</p>
+  {% if error %}<p class="message error" role="alert">{{ error }}</p>{% endif %}
+  <form action="/login" method="post" class="stacked-form">
+    <label>Email<input type="email" name="email" value="{{ email | default('') }}" required autocomplete="email"></label>
+    <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
+    <button type="submit">Sign in</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Product catalog | SmartReco{% endblock %}
+{% block content %}
+<section class="catalog-header">
+  <div>
+    <p class="eyebrow">Product catalog</p>
+    <h1>Find your next learning path</h1>
+  </div>
+  <form action="/products" method="get" class="search-form" role="search">
+    <label class="sr-only" for="catalog-search">Search products</label>
+    <input id="catalog-search" type="search" name="query" value="{{ query }}" placeholder="Search courses, topics, or categories">
+    <button type="submit">Search</button>
+  </form>
+</section>
+{% if products %}
+  <section class="product-grid" aria-label="Products">
+    {% for product in products %}
+    <article class="product-card">
+      <p class="category">{{ product.category }}</p>
+      <h2><a href="/products/{{ product.id }}">{{ product.title }}</a></h2>
+      <p>{{ product.description }}</p>
+      <div class="card-footer"><strong>${{ '%.2f'|format(product.price) }}</strong><a href="/products/{{ product.id }}">View product</a></div>
+    </article>
+    {% endfor %}
+  </section>
+{% elif query %}
+  <section class="empty-state"><h2>No matching products</h2><p>Try a different topic, category, or keyword.</p><a href="/products">View all products</a></section>
+{% else %}
+  <section class="empty-state"><h2>The catalog is currently empty</h2><p>Please check back after products are added.</p></section>
+{% endif %}
+{% endblock %}

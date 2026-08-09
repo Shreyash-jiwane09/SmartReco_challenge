@@ -14,6 +14,7 @@ from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.middleware.timing import TimingMiddleware
 from app.utils.exceptions import register_exception_handlers
+from app.web import router as web_router
 
 
 configure_logging()
@@ -37,6 +38,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(api_router)
+app.include_router(web_router)
 
 app.mount(
     "/static",
