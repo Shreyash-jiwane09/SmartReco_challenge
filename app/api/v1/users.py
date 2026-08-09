@@ -6,7 +6,9 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.dependencies import get_user_service
+from app.api.dependencies import get_user_service, require_admin
+from app.models.user import User, UserRole
+from app.schemas.auth import UserRegistrationRequest
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.services.user import (
     DuplicateUserEmailError,
@@ -20,6 +22,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("", response_model=list[UserResponse])
 def list_users(
+    _: User = Depends(require_admin),
     service: UserService = Depends(get_user_service),
 ) -> list[UserResponse]:
     """Return all users."""
@@ -29,6 +32,7 @@ def list_users(
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: uuid.UUID,
+    _: User = Depends(require_admin),
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     """Return a user by identifier."""
@@ -47,12 +51,20 @@ def get_user(
     status_code=status.HTTP_201_CREATED,
 )
 def create_user(
-    payload: UserCreate,
+    payload: UserRegistrationRequest,
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
-    """Create a user."""
+    """Register a regular user without accepting client-controlled roles."""
     try:
-        return service.create_user(payload)
+        return service.create_user(
+            UserCreate(
+                email=payload.email,
+                full_name=payload.full_name,
+                password=payload.password,
+                role=UserRole.USER,
+                is_active=True,
+            )
+        )
     except DuplicateUserEmailError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -64,6 +76,7 @@ def create_user(
 def update_user(
     user_id: uuid.UUID,
     payload: UserUpdate,
+    _: User = Depends(require_admin),
     service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     """Update a user."""
@@ -88,6 +101,7 @@ def update_user(
 )
 def delete_user(
     user_id: uuid.UUID,
+    _: User = Depends(require_admin),
     service: UserService = Depends(get_user_service),
 ) -> Response:
     """Delete a user."""

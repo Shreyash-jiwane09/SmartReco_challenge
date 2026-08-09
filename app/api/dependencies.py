@@ -16,12 +16,13 @@ from app.ai.mesh.client import MeshRecommendationClient
 from app.ai.retrieval.query_builder import BehavioralProfileQueryBuilder
 from app.ai.retrieval.retriever import SemanticProductRetrievalService
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.event import EventRepository
 from app.repositories.product import ProductRepository
 from app.repositories.recommendation import RecommendationRepository
 from app.repositories.user import UserRepository
 from app.services.behavior import BehaviorProfileService
+from app.services.auth_service import AuthenticationService
 from app.services.event_service import EventService
 from app.services.product import ProductService
 from app.services.recommendation_service import RecommendationService
@@ -30,6 +31,13 @@ from app.services.vector_service import ProductVectorService
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_authentication_service(
+    db: Session = Depends(get_db),
+) -> AuthenticationService:
+    """Build authentication dependencies for the current request."""
+    return AuthenticationService(UserRepository(db))
 
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
@@ -115,7 +123,18 @@ def get_current_user(
     return user
 
 
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require the authenticated, persisted user to hold the admin role."""
+    if current_user.role is not UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
 __all__ = [
+    "get_authentication_service",
     "get_current_user",
     "get_db",
     "get_event_service",
@@ -123,4 +142,5 @@ __all__ = [
     "get_product_vector_service",
     "get_recommendation_service",
     "get_user_service",
+    "require_admin",
 ]

@@ -6,7 +6,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.dependencies import get_product_service
+from app.api.dependencies import get_product_service, require_admin
+from app.models.user import User
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product import ProductNotFoundError, ProductService
 
@@ -44,6 +45,7 @@ def get_product(
 )
 def create_product(
     payload: ProductCreate,
+    _: User = Depends(require_admin),
     service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
     """Create a product."""
@@ -54,6 +56,7 @@ def create_product(
 def update_product(
     product_id: uuid.UUID,
     payload: ProductUpdate,
+    _: User = Depends(require_admin),
     service: ProductService = Depends(get_product_service),
 ) -> ProductResponse:
     """Update a product."""
@@ -73,6 +76,7 @@ def update_product(
 )
 def delete_product(
     product_id: uuid.UUID,
+    _: User = Depends(require_admin),
     service: ProductService = Depends(get_product_service),
 ) -> Response:
     """Delete a product."""
