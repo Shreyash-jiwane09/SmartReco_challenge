@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 
 from app.ai.agent.graph import build_recommendation_graph
-from app.ai.agent.nodes import RecommendationWorkflowError
+from app.ai.agent.nodes import RecommendationGroundingError, RecommendationWorkflowError
 from app.ai.agent.state import RecommendationAgentState
 from app.ai.retrieval.retriever import RetrievedProduct
 from app.schemas.behavior import (
@@ -120,5 +120,34 @@ def test_graph_propagates_client_exception() -> None:
 
     with pytest.raises(RuntimeError, match="Mesh unavailable"):
         graph.invoke(_state([_product()]))
+
+    assert client.calls == 1
+
+
+def test_graph_rejects_an_unknown_generated_product_id_without_retrying() -> None:
+    product = _product()
+    client = _FakeRecommendationClient(result=_recommendation(uuid4()))
+    graph = build_recommendation_graph(client)  # type: ignore[arg-type]
+
+    with pytest.raises(RecommendationGroundingError, match="catalog grounding failed"):
+        graph.invoke(_state([product]))
+
+    assert client.calls == 1
+
+
+def test_graph_rejects_mixed_grounded_and_ungrounded_recommendation_without_retrying() -> None:
+    product = _product()
+    mixed_recommendation = GeneratedRecommendation(
+        narrative="Mixed selections.",
+        recommendations=[
+            RecommendedProduct(product_id=product.product_id, reason="A valid choice."),
+            RecommendedProduct(product_id=uuid4(), reason="An invalid choice."),
+        ],
+    )
+    client = _FakeRecommendationClient(result=mixed_recommendation)
+    graph = build_recommendation_graph(client)  # type: ignore[arg-type]
+
+    with pytest.raises(RecommendationGroundingError, match="catalog grounding failed"):
+        graph.invoke(_state([product]))
 
     assert client.calls == 1

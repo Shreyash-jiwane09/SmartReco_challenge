@@ -15,6 +15,10 @@ class RecommendationWorkflowError(RuntimeError):
     """Raised when a recommendation graph receives unusable input state."""
 
 
+class RecommendationGroundingError(RecommendationWorkflowError):
+    """Raised when generated product selections are absent from catalog candidates."""
+
+
 def prepare_recommendation_context(
     state: RecommendationAgentState,
 ) -> dict[str, object]:
@@ -42,3 +46,27 @@ def build_generate_recommendation_node(
         return {"generated_recommendation": recommendation, "failure": None}
 
     return generate_recommendation
+
+
+def validate_recommendation_grounding(
+    state: RecommendationAgentState,
+) -> dict[str, object]:
+    """Require every generated product ID to be present in the retrieved candidate set."""
+    generated_recommendation = state.get("generated_recommendation")
+    if generated_recommendation is None:
+        raise RecommendationGroundingError(
+            "Recommendation grounding requires a generated recommendation"
+        )
+
+    allowed_product_ids = {product.product_id for product in state["retrieved_products"]}
+    invalid_product_ids = [
+        selection.product_id
+        for selection in generated_recommendation.recommendations
+        if selection.product_id not in allowed_product_ids
+    ]
+    if invalid_product_ids:
+        invalid_ids = ", ".join(str(product_id) for product_id in invalid_product_ids)
+        raise RecommendationGroundingError(
+            f"Recommendation catalog grounding failed for product IDs: {invalid_ids}"
+        )
+    return {}

@@ -9,9 +9,11 @@ from uuid import uuid4
 import pytest
 
 from app.ai.agent.nodes import (
+    RecommendationGroundingError,
     RecommendationWorkflowError,
     build_generate_recommendation_node,
     prepare_recommendation_context,
+    validate_recommendation_grounding,
 )
 from app.ai.agent.state import RecommendationAgentState
 from app.ai.retrieval.retriever import RetrievedProduct
@@ -143,3 +145,61 @@ def test_generation_node_does_not_mutate_frozen_upstream_inputs() -> None:
 
     assert profile == profile_before
     assert product is product_before
+
+
+def test_grounding_accepts_all_selected_products_from_candidates() -> None:
+    first_product = _product()
+    second_product = _product()
+    state = _state(_profile(), [first_product, second_product])
+    state["generated_recommendation"] = GeneratedRecommendation(
+        narrative="Two relevant courses.",
+        recommendations=[
+            RecommendedProduct(product_id=first_product.product_id, reason="Matches agent interests."),
+            RecommendedProduct(product_id=second_product.product_id, reason="Builds graph skills."),
+        ],
+    )
+
+    assert validate_recommendation_grounding(state) == {}
+
+
+def test_grounding_rejects_unknown_structurally_valid_product_id() -> None:
+    product = _product()
+    state = _state(_profile(), [product])
+    state["generated_recommendation"] = _recommendation(uuid4())
+
+    with pytest.raises(RecommendationGroundingError, match="catalog grounding failed"):
+        validate_recommendation_grounding(state)
+
+
+def test_grounding_rejects_mixed_valid_and_unknown_product_ids_completely() -> None:
+    product = _product()
+    state = _state(_profile(), [product])
+    state["generated_recommendation"] = GeneratedRecommendation(
+        narrative="Mixed selections.",
+        recommendations=[
+            RecommendedProduct(product_id=product.product_id, reason="A valid choice."),
+            RecommendedProduct(product_id=uuid4(), reason="An invalid choice."),
+        ],
+    )
+
+    with pytest.raises(RecommendationGroundingError, match="catalog grounding failed"):
+        validate_recommendation_grounding(state)
+
+
+def test_grounding_rejects_missing_generated_recommendation() -> None:
+    with pytest.raises(RecommendationGroundingError, match="requires a generated recommendation"):
+        validate_recommendation_grounding(_state(_profile(), [_product()]))
+
+
+def test_grounding_does_not_mutate_recommendation_or_retrieved_products() -> None:
+    product = _product()
+    generated = _recommendation(product.product_id)
+    state = _state(_profile(), [product])
+    state["generated_recommendation"] = generated
+    client = _FakeRecommendationClient()
+
+    validate_recommendation_grounding(state)
+
+    assert state["generated_recommendation"] is generated
+    assert state["retrieved_products"] == [product]
+    assert client.prompts == []
