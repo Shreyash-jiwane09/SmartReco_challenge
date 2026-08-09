@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # AI / vector search
     mesh_api_key: str = Field(default="", repr=False)
     mesh_embedding_model: str = "sentence-transformers/all-minilm-l6-v2"
+    mesh_chat_model: str = "openai/gpt-4o-mini"
     chroma_collection_name: str = "smartreco_products"
     chroma_persist_directory: str = "./data/chroma"
 
