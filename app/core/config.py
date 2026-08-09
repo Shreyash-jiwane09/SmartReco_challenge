@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     database_url: str
     database_echo: bool = False
 
+    # AI / vector search
+    mesh_api_key: str = Field(default="", repr=False)
+    mesh_embedding_model: str = "openai/text-embedding-3-small"
+    chroma_collection_name: str = "smartreco_products"
+    chroma_persist_directory: str = "./data/chroma"
+
     # Security
     secret_key: str = Field(min_length=32, repr=False)
     jwt_algorithm: str = "HS256"
