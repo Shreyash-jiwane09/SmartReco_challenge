@@ -64,6 +64,13 @@ class WeightedBehaviorSignal(BaseModel):
         return value
 
 
+class DecayedBehaviorSignal(WeightedBehaviorSignal):
+    """A weighted signal adjusted for elapsed time since the source event."""
+
+    decay_factor: float = Field(ge=0.0, le=1.0)
+    decayed_value: float = Field(ge=0.0)
+
+
 class RecentActivitySummary(BaseModel):
     """Aggregate behavioral activity for the configured profile window."""
 

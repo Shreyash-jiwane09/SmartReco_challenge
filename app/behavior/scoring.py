@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.behavior.config import behavior_scoring_config
 from app.models.event import Event
-from app.schemas.behavior import WeightedBehaviorSignal
+from app.schemas.behavior import DecayedBehaviorSignal, WeightedBehaviorSignal
 
 
 def weight_event(event: Event) -> WeightedBehaviorSignal:
@@ -23,4 +25,26 @@ def weight_event(event: Event) -> WeightedBehaviorSignal:
         source=event.event_type.value.lower(),
         occurred_at=event.event_timestamp,
         resource_id=event.resource_id,
+    )
+
+
+def apply_recency_decay(
+    signal: WeightedBehaviorSignal, reference_time: datetime
+) -> DecayedBehaviorSignal:
+    """Apply configured half-life decay to a weighted behavior signal."""
+    if reference_time.tzinfo is None or reference_time.utcoffset() is None:
+        raise ValueError("reference_time must be timezone-aware")
+
+    age_hours = max(
+        0.0,
+        (reference_time - signal.occurred_at).total_seconds() / 3600,
+    )
+    decay_factor = 0.5 ** (
+        age_hours / behavior_scoring_config.decay_half_life_hours
+    )
+
+    return DecayedBehaviorSignal(
+        **signal.model_dump(),
+        decay_factor=decay_factor,
+        decayed_value=signal.signal_value * decay_factor,
     )
