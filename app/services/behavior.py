@@ -8,6 +8,7 @@ from uuid import UUID
 from app.behavior.config import behavior_scoring_config
 from app.behavior.interests import extract_interests
 from app.behavior.scoring import apply_recency_decay, weight_event
+from app.behavior.triggers import evaluate_recommendation_trigger
 from app.models.event import EventType
 from app.repositories.event import EventRepository
 from app.repositories.product import ProductRepository
@@ -36,6 +37,7 @@ class BehaviorProfileService:
         self,
         user_id: UUID,
         reference_time: datetime | None = None,
+        last_recommendation_at: datetime | None = None,
     ) -> BehavioralProfile:
         """Generate one internally consistent profile for a user."""
         if reference_time is None:
@@ -71,7 +73,7 @@ class BehaviorProfileService:
             )
 
         extraction_result = extract_interests(extraction_inputs)
-        return BehavioralProfile(
+        profile = BehavioralProfile(
             user_id=user_id,
             interests=extraction_result.interests,
             evidence=extraction_result.evidence,
@@ -85,6 +87,15 @@ class BehaviorProfileService:
                 recommendation_refresh=False,
                 reason=RecommendationTriggerReason.INSUFFICIENT_SIGNAL,
             ),
+        )
+        return profile.model_copy(
+            update={
+                "trigger": evaluate_recommendation_trigger(
+                    profile,
+                    reference_time=reference_time,
+                    last_recommendation_at=last_recommendation_at,
+                )
+            }
         )
 
     def _product_context(

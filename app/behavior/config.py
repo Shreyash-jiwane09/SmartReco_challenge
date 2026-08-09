@@ -34,6 +34,7 @@ class BehaviorScoringConfig:
     search_interest_multiplier: float = 1.0
     product_category_multiplier: float = 1.0
     product_title_multiplier: float = 0.5
+    high_engagement_seconds: int = 120
 
     def __post_init__(self) -> None:
         """Prevent mutation of weights, including on custom config instances."""
