@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Manage products | SmartReco{% endblock %}
+{% block content %}
+<section class="catalog-header">
+  <div><p class="eyebrow">Admin</p><h1>Manage products</h1></div>
+  <a class="button-link" href="/admin/products/new">Create product</a>
+</section>
+{% if message %}<p class="message success" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="message error" role="alert">{{ error }}</p>{% endif %}
+{% if products %}
+<table class="product-table">
+  <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>{% for product in products %}<tr>
+    <td><strong>{{ product.title }}</strong><br><small>{{ product.description }}</small></td>
+    <td>{{ product.category }}</td><td>${{ '%.2f'|format(product.price) }}</td>
+    <td><span class="{{ 'status-active' if product.is_active else 'status-inactive' }}">{{ 'Active' if product.is_active else 'Inactive' }}</span></td>
+    <td><div class="admin-actions"><a href="/admin/products/{{ product.id }}/edit">Edit</a><form action="/admin/products/{{ product.id }}/delete" method="post"><button class="button-danger" type="submit">Delete product</button></form></div></td>
+  </tr>{% endfor %}</tbody>
+</table>
+{% else %}
+<section class="empty-state"><h2>No products yet</h2><p>Create a real catalog product to begin.</p></section>
+{% endif %}
+{% endblock %}

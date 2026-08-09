@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
@@ -24,9 +25,14 @@ from app.core.security import AUTH_COOKIE_NAME, create_access_token
 from app.database.session import get_db
 from app.models.product import Product
 from app.models.recommendation import Recommendation
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.auth_service import AuthenticationService, InvalidCredentialsError
-from app.services.product import ProductNotFoundError, ProductService
+from app.services.product import (
+    ProductNotFoundError,
+    ProductService,
+    ProductServiceError,
+)
 from app.services.recommendation_service import (
     RecommendationGenerationStatus,
     RecommendationService,
@@ -105,6 +111,68 @@ def _recommendation_message(
     if status is RecommendationGenerationStatus.NO_PRODUCTS:
         return "We could not find matching catalog products yet. Keep exploring and try again soon."
     return "Your recommendations have been refreshed."
+
+
+def _admin_access_response(request: Request, user: User | None) -> Response | None:
+    """Return the appropriate browser response unless the user is an admin."""
+    if user is None:
+        return _redirect_to_login()
+    if user.role is not UserRole.ADMIN:
+        return templates.TemplateResponse(
+            request,
+            "admin/forbidden.html",
+            _context(request, user),
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    return None
+
+
+def _product_form_data(
+    title: str,
+    description: str,
+    category: str,
+    price: str,
+    is_active: bool,
+) -> tuple[ProductCreate | None, dict[str, object] | None]:
+    """Coerce a browser form into the established product creation contract."""
+    values = {
+        "title": title.strip(),
+        "description": description.strip(),
+        "category": category.strip(),
+        "price": price.strip(),
+        "is_active": is_active,
+    }
+    if not all((values["title"], values["description"], values["category"])):
+        return None, values
+    try:
+        return ProductCreate.model_validate(values), None
+    except ValidationError:
+        return None, values
+
+
+def _product_form_response(
+    request: Request,
+    user: User,
+    *,
+    product: Product | None = None,
+    values: dict[str, object] | None = None,
+    error: str | None = None,
+    status_code: int = status.HTTP_200_OK,
+) -> Response:
+    """Render the shared create/edit form with safe browser-facing feedback."""
+    return templates.TemplateResponse(
+        request,
+        "admin/products/form.html",
+        _context(
+            request,
+            user,
+            product=product,
+            values=values or {},
+            is_active=(product.is_active if product is not None else True),
+            error=error,
+        ),
+        status_code=status_code,
+    )
 
 
 @router.get("/", name="home")
@@ -295,3 +363,203 @@ def recommendations_refresh(
             error=error,
         ),
     )
+
+
+@router.get("/admin", name="admin_dashboard")
+def admin_dashboard(
+    request: Request,
+    user: User | None = Depends(get_web_current_user),
+) -> Response:
+    """Provide a stable entry point for the minimal product-management UI."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    return RedirectResponse("/admin/products", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/admin/products", name="admin_products")
+def admin_products(
+    request: Request,
+    message: str | None = None,
+    user: User | None = Depends(get_web_current_user),
+    service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Render every persisted product for an authorized administrator."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    assert user is not None
+    messages = {
+        "created": "Product created and indexed.",
+        "updated": "Product updated and re-indexed.",
+        "deleted": "Product deleted from the catalog and index.",
+    }
+    return templates.TemplateResponse(
+        request,
+        "admin/products/list.html",
+        _context(
+            request,
+            user,
+            products=service.list_products(),
+            message=messages.get(message),
+        ),
+    )
+
+
+@router.get("/admin/products/new", name="admin_product_create_form")
+def admin_product_create_form(
+    request: Request,
+    user: User | None = Depends(get_web_current_user),
+) -> Response:
+    """Render the admin-only product creation form."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    assert user is not None
+    return _product_form_response(request, user)
+
+
+@router.post("/admin/products", name="admin_product_create")
+def admin_product_create(
+    request: Request,
+    title: str = Form(""),
+    description: str = Form(""),
+    category: str = Form(""),
+    price: str = Form(""),
+    is_active: str | None = Form(None),
+    user: User | None = Depends(get_web_current_user),
+    service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Create a product through the established SQL and Chroma service path."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    assert user is not None
+    payload, values = _product_form_data(title, description, category, price, is_active == "on")
+    if payload is None:
+        return _product_form_response(
+            request,
+            user,
+            values=values,
+            error="Enter a title, description, category, and valid price.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    try:
+        service.create_product(payload)
+    except ProductServiceError:
+        logger.exception("Admin product creation failed")
+        return _product_form_response(
+            request,
+            user,
+            values=values,
+            error="We could not create this product right now. Please try again.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return RedirectResponse("/admin/products?message=created", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/admin/products/{product_id}/edit", name="admin_product_edit_form")
+def admin_product_edit_form(
+    request: Request,
+    product_id: uuid.UUID,
+    user: User | None = Depends(get_web_current_user),
+    service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Render a pre-populated edit form for one persisted product."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    assert user is not None
+    try:
+        product = service.get_product(product_id)
+    except ProductNotFoundError:
+        return templates.TemplateResponse(
+            request,
+            "products/not_found.html",
+            _context(request, user),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    return _product_form_response(request, user, product=product)
+
+
+@router.post("/admin/products/{product_id}", name="admin_product_update")
+def admin_product_update(
+    request: Request,
+    product_id: uuid.UUID,
+    title: str = Form(""),
+    description: str = Form(""),
+    category: str = Form(""),
+    price: str = Form(""),
+    is_active: str | None = Form(None),
+    user: User | None = Depends(get_web_current_user),
+    service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Update a product through the established SQL and Chroma service path."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    assert user is not None
+    payload, values = _product_form_data(title, description, category, price, is_active == "on")
+    if payload is None:
+        return _product_form_response(
+            request,
+            user,
+            values=values,
+            error="Enter a title, description, category, and valid price.",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    try:
+        service.update_product(product_id, ProductUpdate.model_validate(payload.model_dump()))
+    except ProductNotFoundError:
+        return templates.TemplateResponse(
+            request,
+            "products/not_found.html",
+            _context(request, user),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    except ProductServiceError:
+        logger.exception("Admin product update failed", extra={"product_id": str(product_id)})
+        return _product_form_response(
+            request,
+            user,
+            values=values,
+            error="We could not update this product right now. Please try again.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return RedirectResponse("/admin/products?message=updated", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/products/{product_id}/delete", name="admin_product_delete")
+def admin_product_delete(
+    request: Request,
+    product_id: uuid.UUID,
+    user: User | None = Depends(get_web_current_user),
+    service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Delete one product through the established SQL and Chroma service path."""
+    access_response = _admin_access_response(request, user)
+    if access_response is not None:
+        return access_response
+    try:
+        service.delete_product(product_id)
+    except ProductNotFoundError:
+        return templates.TemplateResponse(
+            request,
+            "products/not_found.html",
+            _context(request, user),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    except ProductServiceError:
+        logger.exception("Admin product deletion failed", extra={"product_id": str(product_id)})
+        return templates.TemplateResponse(
+            request,
+            "admin/products/list.html",
+            _context(
+                request,
+                user,
+                products=service.list_products(),
+                error="We could not delete this product right now. Please try again.",
+            ),
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return RedirectResponse("/admin/products?message=deleted", status_code=status.HTTP_303_SEE_OTHER)

@@ -8,12 +8,15 @@ a:hover { text-decoration: underline; }
 nav { align-items: center; display: flex; gap: 1rem; }
 nav form { margin: 0; }
 .link-button { background: none; border: 0; color: #155eef; cursor: pointer; font: inherit; padding: 0; }
+.button-link { background: #155eef; border-radius: 7px; color: #fff; font-weight: 700; padding: .75rem 1rem; }
+.button-link:hover { color: #fff; text-decoration: none; }
 .container { margin: 0 auto; max-width: 1120px; padding: 3rem 1.5rem; }
 .auth-card { background: #fff; border: 1px solid #e5e9f0; border-radius: 14px; margin: 3rem auto; max-width: 460px; padding: 2rem; }
 .eyebrow, .category { color: #475467; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .stacked-form { display: grid; gap: 1rem; margin-top: 1.5rem; }
 label { display: grid; font-weight: 600; gap: .4rem; }
 input { border: 1px solid #cfd6e4; border-radius: 7px; font: inherit; padding: .7rem .8rem; }
+textarea { border: 1px solid #cfd6e4; border-radius: 7px; font: inherit; padding: .7rem .8rem; resize: vertical; }
 button { background: #155eef; border: 0; border-radius: 7px; color: #fff; cursor: pointer; font: inherit; font-weight: 700; padding: .75rem 1rem; }
 .message.error { background: #fff1f1; border-radius: 7px; color: #b42318; padding: .75rem; }
 .message.success { background: #ecfdf3; border-radius: 7px; color: #067647; padding: .75rem; }
@@ -39,5 +42,13 @@ button { background: #155eef; border: 0; border-radius: 7px; color: #fff; cursor
 .recommendation-narrative p { line-height: 1.6; }
 .generated-at { color: #475467; font-size: .9rem; }
 .recommendation-reason { background: #f8fafc; border-left: 3px solid #84adff; padding: .65rem .75rem; }
+.admin-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .6rem; }
+.admin-actions form { margin: 0; }
+.button-danger { background: #b42318; }
+.status-active { color: #067647; font-weight: 700; }
+.status-inactive { color: #475467; font-weight: 700; }
+.product-table { background: #fff; border: 1px solid #e5e9f0; border-collapse: collapse; border-radius: 12px; overflow: hidden; width: 100%; }
+.product-table th, .product-table td { border-bottom: 1px solid #e5e9f0; padding: .9rem; text-align: left; vertical-align: top; }
+.product-table th { background: #f8fafc; font-size: .8rem; text-transform: uppercase; }
 .sr-only { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
-@media (max-width: 680px) { .catalog-header, .recommendation-header { align-items: stretch; flex-direction: column; } .search-form { max-width: none; } }
+@media (max-width: 680px) { .catalog-header, .recommendation-header { align-items: stretch; flex-direction: column; } .search-form { max-width: none; } .product-table { display: block; overflow-x: auto; } }

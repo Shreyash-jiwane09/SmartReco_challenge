@@ -13,6 +13,7 @@
       <nav aria-label="Primary navigation">
         <a href="/products">Catalog</a>
         <a href="/recommendations">Recommendations</a>
+        {% if current_user.role.value == 'ADMIN' %}<a href="/admin">Admin</a>{% endif %}
         <form action="/logout" method="post">
           <button type="submit" class="link-button">Logout</button>
         </form>
