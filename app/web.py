@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, status
@@ -15,17 +17,33 @@ from app.api.dependencies import (
     get_authentication_service,
     get_current_user,
     get_product_service,
+    get_recommendation_service,
 )
 from app.core.config import settings
 from app.core.security import AUTH_COOKIE_NAME, create_access_token
 from app.database.session import get_db
+from app.models.product import Product
+from app.models.recommendation import Recommendation
 from app.models.user import User
 from app.services.auth_service import AuthenticationService, InvalidCredentialsError
 from app.services.product import ProductNotFoundError, ProductService
+from app.services.recommendation_service import (
+    RecommendationGenerationStatus,
+    RecommendationService,
+)
 
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 router = APIRouter(include_in_schema=False)
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RecommendationProductDisplay:
+    """A persisted recommendation selection paired with its current catalog product."""
+
+    product: Product
+    reason: str
 
 
 def get_web_current_user(
@@ -56,6 +74,37 @@ def _context(request: Request, user: User | None, **values: object) -> dict[str,
         "tracking_time_spent": None,
         **values,
     }
+
+
+def _recommendation_products(
+    recommendation: Recommendation, service: ProductService
+) -> list[RecommendationProductDisplay]:
+    """Resolve persisted product IDs through the authoritative product service."""
+    products: list[RecommendationProductDisplay] = []
+    for selection in recommendation.products:
+        try:
+            product = service.get_product(selection.product_id)
+        except ProductNotFoundError:
+            logger.warning(
+                "Skipping missing product from persisted recommendation",
+                extra={"product_id": str(selection.product_id)},
+            )
+            continue
+        products.append(RecommendationProductDisplay(product=product, reason=selection.reason))
+    return products
+
+
+def _recommendation_message(
+    status: RecommendationGenerationStatus, trigger_reason: object
+) -> str:
+    """Translate normal frozen-service outcomes into concise browser copy."""
+    if status is RecommendationGenerationStatus.TRIGGER_NOT_MET:
+        if getattr(trigger_reason, "value", trigger_reason) == "cooldown_active":
+            return "Your latest recommendations are still current. Browse a little longer before refreshing."
+        return "Keep exploring products so SmartReco can learn your interests."
+    if status is RecommendationGenerationStatus.NO_PRODUCTS:
+        return "We could not find matching catalog products yet. Keep exploring and try again soon."
+    return "Your recommendations have been refreshed."
 
 
 @router.get("/", name="home")
@@ -174,5 +223,75 @@ def product_detail(
                 "resourceType": "product",
                 "resourceId": str(product.id),
             },
+        ),
+    )
+
+
+@router.get("/recommendations", name="recommendations_page")
+def recommendations_page(
+    request: Request,
+    user: User | None = Depends(get_web_current_user),
+    recommendation_service: RecommendationService = Depends(get_recommendation_service),
+    product_service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Render the authenticated user's latest persisted recommendation without generating."""
+    if user is None:
+        return _redirect_to_login()
+    recommendation = recommendation_service.get_latest_for_user(user.id)
+    products = (
+        _recommendation_products(recommendation, product_service)
+        if recommendation is not None
+        else []
+    )
+    return templates.TemplateResponse(
+        request,
+        "recommendations/index.html",
+        _context(
+            request,
+            user,
+            recommendation=recommendation,
+            products=products,
+            message=None,
+            error=None,
+        ),
+    )
+
+
+@router.post("/recommendations/refresh", name="recommendations_refresh")
+def recommendations_refresh(
+    request: Request,
+    user: User | None = Depends(get_web_current_user),
+    recommendation_service: RecommendationService = Depends(get_recommendation_service),
+    product_service: ProductService = Depends(get_product_service),
+) -> Response:
+    """Ask the frozen service to refresh, then preserve and display persisted state."""
+    if user is None:
+        return _redirect_to_login()
+    try:
+        result = recommendation_service.generate_for_user(user.id)
+        recommendation = result.recommendation or recommendation_service.get_latest_for_user(user.id)
+        message = _recommendation_message(result.status, result.profile.trigger.reason)
+        error = None
+    except Exception:
+        logger.exception("Recommendation refresh failed", extra={"user_id": str(user.id)})
+        recommendation = recommendation_service.get_latest_for_user(user.id)
+        message = None
+        error = "We could not refresh your recommendations right now. Please try again shortly."
+
+    products = (
+        _recommendation_products(recommendation, product_service)
+        if recommendation is not None
+        else []
+    )
+    return templates.TemplateResponse(
+        request,
+        "recommendations/index.html",
+        _context(
+            request,
+            user,
+            recommendation=recommendation,
+            products=products,
+            message=message,
+            error=error,
         ),
     )

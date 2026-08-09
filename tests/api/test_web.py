@@ -1,18 +1,26 @@
 """Server-rendered user-platform route tests."""
 
 from decimal import Decimal
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_authentication_service, get_db, get_product_service
+from app.api.dependencies import (
+    get_authentication_service,
+    get_db,
+    get_product_service,
+    get_recommendation_service,
+)
+from app.core.security import decode_access_token
 from app.main import app
 from app.models.user import User, UserRole
 from app.services.auth_service import InvalidCredentialsError
 from app.services.product import ProductNotFoundError
+from app.services.recommendation_service import RecommendationGenerationStatus
 from app.web import AUTH_COOKIE_NAME
 
 
@@ -35,6 +43,15 @@ def _product(title: str = "Agentic AI Fundamentals") -> SimpleNamespace:
         category="Agentic AI",
         price=Decimal("79.00"),
         is_active=True,
+    )
+
+
+def _recommendation(product, narrative: str = "These picks match your recent agentic AI exploration.") -> SimpleNamespace:
+    return SimpleNamespace(
+        id=uuid4(),
+        narrative=narrative,
+        created_at=datetime(2026, 8, 9, tzinfo=timezone.utc),
+        products=[SimpleNamespace(product_id=product.id, reason="Matches your recent searches.")],
     )
 
 
@@ -63,6 +80,18 @@ def platform_client():
         app.dependency_overrides.clear()
 
 
+@pytest.fixture
+def recommendation_platform_client(platform_client):
+    client, _, product_service, product = platform_client
+    recommendation_service = Mock()
+    recommendation_service.get_latest_for_user.return_value = None
+    app.dependency_overrides[get_recommendation_service] = lambda: recommendation_service
+    try:
+        yield client, product_service, product, recommendation_service
+    finally:
+        app.dependency_overrides.pop(get_recommendation_service, None)
+
+
 def _login(client: TestClient) -> None:
     response = client.post(
         "/login",
@@ -70,6 +99,10 @@ def _login(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
+
+
+def _authenticated_user_id(client: TestClient) -> UUID:
+    return UUID(decode_access_token(client.cookies[AUTH_COOKIE_NAME])["sub"])
 
 
 def test_login_page_renders(platform_client) -> None:
@@ -239,3 +272,104 @@ def test_authenticated_user_navigates_between_catalog_and_detail(platform_client
 
     assert catalog_response.status_code == 200
     assert detail_response.status_code == 200
+
+
+def test_unauthenticated_recommendations_redirect_to_login(recommendation_platform_client) -> None:
+    client, _, _, recommendation_service = recommendation_platform_client
+
+    response = client.get("/recommendations", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+    recommendation_service.get_latest_for_user.assert_not_called()
+
+
+def test_recommendations_page_shows_learning_state_without_persisted_result(
+    recommendation_platform_client,
+) -> None:
+    client, _, _, recommendation_service = recommendation_platform_client
+    _login(client)
+
+    response = client.get("/recommendations")
+
+    assert response.status_code == 200
+    assert "We are still learning your interests" in response.text
+    recommendation_service.get_latest_for_user.assert_called_once_with(_authenticated_user_id(client))
+    recommendation_service.generate_for_user.assert_not_called()
+
+
+def test_recommendations_page_renders_persisted_narrative_products_reasons_and_links(
+    recommendation_platform_client,
+) -> None:
+    client, product_service, product, recommendation_service = recommendation_platform_client
+    recommendation_service.get_latest_for_user.return_value = _recommendation(product)
+    _login(client)
+
+    response = client.get("/recommendations")
+
+    assert response.status_code == 200
+    assert "These picks match your recent agentic AI exploration." in response.text
+    assert product.title in response.text
+    assert "Matches your recent searches." in response.text
+    assert f'href="/products/{product.id}"' in response.text
+    product_service.get_product.assert_called_once_with(product.id)
+    recommendation_service.generate_for_user.assert_not_called()
+
+
+def test_refresh_uses_current_user_and_preserves_latest_result_when_trigger_is_not_met(
+    recommendation_platform_client,
+) -> None:
+    client, _, product, recommendation_service = recommendation_platform_client
+    stored = _recommendation(product)
+    profile = SimpleNamespace(trigger=SimpleNamespace(reason=SimpleNamespace(value="cooldown_active")))
+    recommendation_service.generate_for_user.return_value = SimpleNamespace(
+        status=RecommendationGenerationStatus.TRIGGER_NOT_MET,
+        profile=profile,
+        recommendation=None,
+    )
+    recommendation_service.get_latest_for_user.return_value = stored
+    _login(client)
+
+    response = client.post("/recommendations/refresh")
+
+    assert response.status_code == 200
+    assert "latest recommendations are still current" in response.text
+    assert stored.narrative in response.text
+    recommendation_service.generate_for_user.assert_called_once_with(_authenticated_user_id(client))
+
+
+def test_refresh_renders_new_persisted_recommendation_after_success(
+    recommendation_platform_client,
+) -> None:
+    client, _, product, recommendation_service = recommendation_platform_client
+    generated = _recommendation(product, "A refreshed recommendation for your latest activity.")
+    profile = SimpleNamespace(trigger=SimpleNamespace(reason=SimpleNamespace(value="search_intent")))
+    recommendation_service.generate_for_user.return_value = SimpleNamespace(
+        status=RecommendationGenerationStatus.GENERATED,
+        profile=profile,
+        recommendation=generated,
+    )
+    _login(client)
+
+    response = client.post("/recommendations/refresh")
+
+    assert response.status_code == 200
+    assert generated.narrative in response.text
+    assert "recommendations have been refreshed" in response.text
+
+
+def test_refresh_failure_keeps_latest_persisted_recommendation_and_hides_details(
+    recommendation_platform_client,
+) -> None:
+    client, _, product, recommendation_service = recommendation_platform_client
+    stored = _recommendation(product)
+    recommendation_service.generate_for_user.side_effect = RuntimeError("Mesh response: secret")
+    recommendation_service.get_latest_for_user.return_value = stored
+    _login(client)
+
+    response = client.post("/recommendations/refresh")
+
+    assert response.status_code == 200
+    assert stored.narrative in response.text
+    assert "We could not refresh your recommendations right now." in response.text
+    assert "Mesh response: secret" not in response.text

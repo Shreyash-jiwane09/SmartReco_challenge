@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Recommendations | SmartReco{% endblock %}
+{% block content %}
+<section class="recommendation-header">
+  <div>
+    <p class="eyebrow">Personalized for you</p>
+    <h1>Your recommendations</h1>
+  </div>
+  <form action="/recommendations/refresh" method="post">
+    <button type="submit">Refresh recommendations</button>
+  </form>
+</section>
+
+{% if message %}<p class="message success" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="message error" role="alert">{{ error }}</p>{% endif %}
+
+{% if recommendation %}
+  <section class="recommendation-narrative">
+    <h2>Why these fit your interests</h2>
+    <p>{{ recommendation.narrative }}</p>
+    <p class="generated-at">Generated {{ recommendation.created_at.strftime('%b %d, %Y at %I:%M %p UTC') }}</p>
+  </section>
+  {% if products %}
+  <section class="product-grid" aria-label="Recommended products">
+    {% for item in products %}
+    <article class="product-card">
+      <p class="category">{{ item.product.category }}</p>
+      <h2><a href="/products/{{ item.product.id }}" data-track-click="recommendation_product_detail" data-resource-type="product" data-resource-id="{{ item.product.id }}">{{ item.product.title }}</a></h2>
+      <p>{{ item.product.description }}</p>
+      <p class="recommendation-reason"><strong>Why it fits:</strong> {{ item.reason }}</p>
+      <div class="card-footer"><strong>${{ '%.2f'|format(item.product.price) }}</strong><a href="/products/{{ item.product.id }}" data-track-click="recommendation_product_detail" data-resource-type="product" data-resource-id="{{ item.product.id }}">View product</a></div>
+    </article>
+    {% endfor %}
+  </section>
+  {% else %}
+  <section class="empty-state"><h2>These products are no longer available</h2><p>Refresh when you are ready for current catalog matches.</p></section>
+  {% endif %}
+{% else %}
+  <section class="empty-state">
+    <h2>We are still learning your interests</h2>
+    <p>Keep exploring products so SmartReco can learn what is most useful for you.</p>
+    <a href="/products">Explore the catalog</a>
+  </section>
+{% endif %}
+{% endblock %}
