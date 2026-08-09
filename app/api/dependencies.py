@@ -18,6 +18,7 @@ from app.repositories.user import UserRepository
 from app.services.event_service import EventService
 from app.services.product import ProductService
 from app.services.user import UserService
+from app.services.vector_service import ProductVectorService
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -28,9 +29,17 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
     return UserService(UserRepository(db))
 
 
-def get_product_service(db: Session = Depends(get_db)) -> ProductService:
+def get_product_vector_service() -> ProductVectorService:
+    """Build Product vector indexing dependencies from configuration."""
+    return ProductVectorService.from_settings()
+
+
+def get_product_service(
+    db: Session = Depends(get_db),
+    vector_service: ProductVectorService = Depends(get_product_vector_service),
+) -> ProductService:
     """Build a product service for the current request transaction."""
-    return ProductService(ProductRepository(db))
+    return ProductService(ProductRepository(db), vector_service)
 
 
 def get_event_service(db: Session = Depends(get_db)) -> EventService:
@@ -75,5 +84,6 @@ __all__ = [
     "get_db",
     "get_event_service",
     "get_product_service",
+    "get_product_vector_service",
     "get_user_service",
 ]

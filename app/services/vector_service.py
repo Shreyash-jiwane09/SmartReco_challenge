@@ -39,6 +39,11 @@ class ProductVectorService:
             ),
         )
 
+    @property
+    def embedding_model(self) -> str:
+        """Return the configured model identifier used for Product embeddings."""
+        return self.embedding_service.model
+
     def upsert_product(self, product: Product) -> str:
         """Embed and upsert a Product under its SQL UUID."""
         document = build_product_document(product)
