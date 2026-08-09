@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from pydantic import ValidationError
+from langsmith import traceable
 
 from app.ai.agent.prompts import RecommendationPrompt
 from app.schemas.recommendation import GeneratedRecommendation
@@ -28,6 +29,7 @@ class MeshRecommendationClient:
             token=api_key,
         )
 
+    @traceable(run_type="llm", name="mesh_recommendation_completion")
     def generate(self, prompt: RecommendationPrompt) -> GeneratedRecommendation:
         """Request schema-constrained JSON and validate it independently with Pydantic."""
         try:

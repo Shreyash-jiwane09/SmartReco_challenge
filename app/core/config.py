@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
     chroma_collection_name: str = "smartreco_products"
     chroma_persist_directory: str = "./data/chroma"
 
+    # Optional LangSmith observability. Tracing never participates in
+    # recommendation correctness and is disabled unless explicitly enabled.
+    langsmith_tracing: bool = False
+    langsmith_api_key: str = Field(default="", repr=False)
+    langsmith_project: str = "smartreco"
+
     # Security
     secret_key: str = Field(min_length=32, repr=False)
     jwt_algorithm: str = "HS256"
@@ -77,5 +84,25 @@ def get_settings() -> Settings:
     """Return the process-wide cached application settings instance."""
     return Settings()
 
+
+def configure_langsmith_environment(config: Settings) -> None:
+    """Expose enabled Pydantic settings to LangGraph and LangSmith SDKs.
+
+    The SDKs read ``os.environ`` directly, while this application also supports
+    values in its local ``.env`` file through Pydantic. Nothing is exported
+    unless tracing is explicitly enabled, so normal application execution has
+    no LangSmith configuration or network dependency.
+    """
+    if not config.langsmith_tracing:
+        return
+
+    os.environ.setdefault("LANGSMITH_TRACING", "true")
+    if config.langsmith_api_key:
+        os.environ.setdefault("LANGSMITH_API_KEY", config.langsmith_api_key)
+    if config.langsmith_project:
+        os.environ.setdefault("LANGSMITH_PROJECT", config.langsmith_project)
+
+
 settings = get_settings()
+configure_langsmith_environment(settings)
 
