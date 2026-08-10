@@ -1,0 +1,31 @@
+# Version control and CI metadata
+.git/
+.github/
+
+# Local configuration and Python environments
+.env
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+
+# Test and tooling artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local runtime data and logs
+data/chroma/
+tmp/
+*.log
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

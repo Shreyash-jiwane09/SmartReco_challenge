@@ -118,6 +118,36 @@ python -m uvicorn app.main:app --reload
 
 The application serves API documentation at `/docs` by default.
 
+## Docker Quick Start
+
+This runs SmartReco and PostgreSQL in containers while keeping the embedded
+Chroma store in a named Docker volume. Mesh, LangSmith, and SMTP remain
+external and optional. Docker does not run migrations or seed the catalog
+automatically, keeping those release operations explicit and repeatable.
+
+```bash
+cp .env.example .env  # Windows PowerShell: Copy-Item .env.example .env
+```
+
+Set `MESH_API_KEY` in `.env` before catalog seeding. The supplied
+`POSTGRES_*` values are local-development defaults; replace `POSTGRES_PASSWORD`
+and `SECRET_KEY` for any shared environment. Leave `SCHEDULER_ENABLED=false`
+unless this is the one process intended to send scheduled digests.
+
+```bash
+docker compose up --build -d
+docker compose run --rm app alembic upgrade head
+docker compose run --rm app python scripts/seed_products.py
+```
+
+Open [http://localhost:8000](http://localhost:8000) (API health:
+[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)).
+The catalog seed uses `ProductService`, so it needs valid Mesh credentials to
+write both PostgreSQL and Chroma. Stop the stack with `docker compose down`;
+do not add `-v` if you want to preserve the database and vector store.
+
+For a foreground startup, use `docker compose up --build` instead of `-d`.
+
 ### Environment configuration
 
 Use `.env.example` as the complete template. Key runtime settings are:
