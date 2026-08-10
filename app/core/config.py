@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     recommendation_digest_timezone: str = "UTC"
     scheduler_enabled: bool = False
 
+    # Optional SMTP delivery for scheduled recommendation digests.
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: str = Field(default="", repr=False)
+    smtp_from_email: str = ""
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: int = Field(default=10, ge=1)
+
     # Security
     secret_key: str = Field(min_length=32, repr=False)
     jwt_algorithm: str = "HS256"

@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from app.core import lifecycle
 from app.core.config import Settings
 from app.models.user import User, UserRole
+from app.services.email_service import DigestProduct
 from app.services.recommendation_service import RecommendationGenerationStatus
 from app.tasks import recommendation_jobs
 from app.tasks.scheduler import RECOMMENDATION_DAILY_DIGEST_JOB_ID, create_scheduler
@@ -132,7 +133,20 @@ class _RecommendationService:
         self.calls.append(user_id)
         if user_id == self.failing_user_id:
             raise RuntimeError("unexpected failure")
-        return SimpleNamespace(status=self.results[user_id])
+        return SimpleNamespace(status=self.results[user_id], recommendation=None)
+
+
+class _ProductRepository:
+    def __init__(self, _session) -> None:
+        pass
+
+
+class _EmailService:
+    is_configured = False
+
+    @classmethod
+    def from_settings(cls):
+        return cls()
 
 
 @pytest.mark.parametrize(
@@ -154,6 +168,8 @@ def test_job_reuses_recommendation_service_for_each_outcome(monkeypatch, status)
         lambda current_session: _UserRepository(current_session, [user]),
     )
     monkeypatch.setattr(recommendation_jobs, "build_recommendation_service", lambda current_session: service)
+    monkeypatch.setattr(recommendation_jobs, "ProductRepository", _ProductRepository)
+    monkeypatch.setattr(recommendation_jobs, "EmailService", _EmailService)
 
     recommendation_jobs.process_scheduled_recommendations()
 
@@ -177,6 +193,8 @@ def test_job_rolls_back_logs_and_continues_after_one_user_failure(monkeypatch, c
         lambda current_session: _UserRepository(current_session, [failed_user, next_user]),
     )
     monkeypatch.setattr(recommendation_jobs, "build_recommendation_service", lambda current_session: service)
+    monkeypatch.setattr(recommendation_jobs, "ProductRepository", _ProductRepository)
+    monkeypatch.setattr(recommendation_jobs, "EmailService", _EmailService)
 
     with caplog.at_level("ERROR"):
         recommendation_jobs.process_scheduled_recommendations()
@@ -185,3 +203,150 @@ def test_job_rolls_back_logs_and_continues_after_one_user_failure(monkeypatch, c
     assert session.rollbacks == 1
     assert session.closed is True
     assert "failed for user_id" in caplog.text
+
+
+class _DigestProductRepository:
+    def __init__(self, _session, products: dict) -> None:
+        self.products = products
+        self.lookups: list[object] = []
+
+    def get_by_id(self, product_id):
+        self.lookups.append(product_id)
+        return self.products.get(product_id)
+
+
+class _DigestEmailService:
+    def __init__(self, *, configured: bool = True, error: Exception | None = None) -> None:
+        self.is_configured = configured
+        self.error = error
+        self.calls: list[dict[str, object]] = []
+
+    def send_recommendation_digest(self, **kwargs: object) -> bool:
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return True
+
+
+def test_generated_result_resolves_catalog_products_and_sends_one_digest(monkeypatch) -> None:
+    user = User(id=uuid4(), email="recipient@example.com", hashed_password="hash", full_name="User")
+    product_id = uuid4()
+    recommendation = SimpleNamespace(
+        narrative="A tailored path for your interests.",
+        products=[SimpleNamespace(product_id=product_id, reason="Matches your interest.")],
+    )
+    session = _Session()
+    service = _RecommendationService({user.id: RecommendationGenerationStatus.GENERATED})
+    service.generate_for_user = lambda user_id: SimpleNamespace(
+        status=RecommendationGenerationStatus.GENERATED,
+        recommendation=recommendation,
+    )
+    catalog_product = SimpleNamespace(
+        title="Agentic AI Fundamentals", category="AI", price=79
+    )
+    product_repository = _DigestProductRepository(session, {product_id: catalog_product})
+    email_service = _DigestEmailService()
+    monkeypatch.setattr(recommendation_jobs, "SessionLocal", lambda: session)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "UserRepository",
+        lambda current_session: _UserRepository(current_session, [user]),
+    )
+    monkeypatch.setattr(recommendation_jobs, "build_recommendation_service", lambda current_session: service)
+    monkeypatch.setattr(recommendation_jobs, "ProductRepository", lambda current_session: product_repository)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "EmailService",
+        SimpleNamespace(from_settings=lambda: email_service),
+    )
+
+    recommendation_jobs.process_scheduled_recommendations()
+
+    assert product_repository.lookups == [product_id]
+    assert len(email_service.calls) == 1
+    call = email_service.calls[0]
+    assert call["recipient_email"] == user.email
+    assert call["narrative"] == recommendation.narrative
+    assert call["products"] == [
+        DigestProduct(
+            title="Agentic AI Fundamentals",
+            category="AI",
+            price=79,
+            reason="Matches your interest.",
+        )
+    ]
+
+
+def test_generated_result_omits_missing_products_and_skips_empty_digest(monkeypatch) -> None:
+    user = User(id=uuid4(), email="recipient@example.com", hashed_password="hash", full_name="User")
+    missing_product_id = uuid4()
+    recommendation = SimpleNamespace(
+        narrative="A tailored path for your interests.",
+        products=[SimpleNamespace(product_id=missing_product_id, reason="Matches your interest.")],
+    )
+    session = _Session()
+    service = SimpleNamespace(
+        generate_for_user=lambda user_id: SimpleNamespace(
+            status=RecommendationGenerationStatus.GENERATED,
+            recommendation=recommendation,
+        )
+    )
+    product_repository = _DigestProductRepository(session, {})
+    email_service = _DigestEmailService()
+    monkeypatch.setattr(recommendation_jobs, "SessionLocal", lambda: session)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "UserRepository",
+        lambda current_session: _UserRepository(current_session, [user]),
+    )
+    monkeypatch.setattr(recommendation_jobs, "build_recommendation_service", lambda current_session: service)
+    monkeypatch.setattr(recommendation_jobs, "ProductRepository", lambda current_session: product_repository)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "EmailService",
+        SimpleNamespace(from_settings=lambda: email_service),
+    )
+
+    recommendation_jobs.process_scheduled_recommendations()
+
+    assert product_repository.lookups == [missing_product_id]
+    assert email_service.calls == []
+
+
+def test_email_failure_does_not_roll_back_generated_recommendation_or_stop_later_users(monkeypatch) -> None:
+    first_user = User(id=uuid4(), email="first@example.com", hashed_password="hash", full_name="First")
+    next_user = User(id=uuid4(), email="next@example.com", hashed_password="hash", full_name="Next")
+    product_id = uuid4()
+    recommendation = SimpleNamespace(
+        narrative="A tailored path.",
+        products=[SimpleNamespace(product_id=product_id, reason="Matches your interest.")],
+    )
+    session = _Session()
+    service = SimpleNamespace(
+        generate_for_user=lambda user_id: SimpleNamespace(
+            status=RecommendationGenerationStatus.GENERATED,
+            recommendation=recommendation,
+        )
+    )
+    catalog_product = SimpleNamespace(title="Course", category="AI", price=79)
+    product_repository = _DigestProductRepository(session, {product_id: catalog_product})
+    email_service = _DigestEmailService(error=RuntimeError("SMTP failure"))
+    monkeypatch.setattr(recommendation_jobs, "SessionLocal", lambda: session)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "UserRepository",
+        lambda current_session: _UserRepository(current_session, [first_user, next_user]),
+    )
+    monkeypatch.setattr(recommendation_jobs, "build_recommendation_service", lambda current_session: service)
+    monkeypatch.setattr(recommendation_jobs, "ProductRepository", lambda current_session: product_repository)
+    monkeypatch.setattr(
+        recommendation_jobs,
+        "EmailService",
+        SimpleNamespace(from_settings=lambda: email_service),
+    )
+
+    recommendation_jobs.process_scheduled_recommendations()
+
+    assert len(email_service.calls) == 2
+    assert session.rollbacks == 0
+    assert session.closed is True
