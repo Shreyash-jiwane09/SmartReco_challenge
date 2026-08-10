@@ -37,13 +37,15 @@ SmartReco includes a 30-course, multi-domain professional e-learning catalog. Co
   metadata, then PostgreSQL re-grounds candidates and rejects invalid, stale,
   or inactive products. This is not reranking, hybrid search, or graph
   retrieval.
-- **LangSmith — IMPLEMENTED AND VERIFIED.** Optional tracing records
+- **LangSmith — IMPLEMENTED / LIVE VERIFICATION PENDING.** Optional tracing records
   recommendation workflow visibility in the `smartreco-build-challenge-2026`
-  trace project; normal operation remains silent when tracing is disabled.
-- **Scheduled proactive delivery — IMPLEMENTED AND RUNTIME VERIFIED.**
+  trace project when configured; normal operation remains silent when tracing
+  is disabled.
+- **Scheduled proactive delivery — IMPLEMENTED / LIVE VERIFICATION PENDING.**
   APScheduler runs the existing recommendation service for eligible users and
   sends SMTP digests from persisted, catalog-grounded recommendations.
-  The end-to-end scheduler-to-email path has been runtime verified.
+  The scheduler and SMTP path are covered by automated tests; no live
+  scheduler-to-email delivery evidence is stored in this repository.
 
 ## Architecture
 
@@ -231,15 +233,16 @@ python -m uvicorn app.main:app --reload
 | --- | --- |
 | Full regression suite | 244 passed, 0 failed, 2 expected skips |
 | Python compile gate | Passed |
-| Real semantic retrieval E2E | Passed — Mesh embeddings, isolated ChromaDB, and PostgreSQL grounding of four catalog products |
-| Real recommendation E2E | Passed — persisted behavior through LangGraph, Mesh Chat, grounding, and PostgreSQL recommendation read-back |
+| Real semantic retrieval E2E | Opt-in test available; not run in this audit (requires `RUN_REAL_MESH_E2E=true` and Mesh credentials) |
+| Real recommendation E2E | Opt-in test available; not run in this audit (requires `RUN_REAL_MESH_E2E=true` and Mesh credentials) |
 | SQL/Chroma dual-write | Passed — create, update, and delete |
 | Professional catalog | 30 active courses seeded; PostgreSQL ↔ Chroma synchronization verified |
 | Catalog seed idempotency | Verified — second run created 0 and skipped 30 |
 | Docker Compose configuration | Passed — `app` and PostgreSQL `db`, health checks, port 8000, and named PostgreSQL/Chroma volumes resolve successfully |
-| Official challenge checks | 4/4 critical checks passed |
+| Official challenge checks | Workflow configuration verified locally; remote execution status was not available in this audit |
 
-The organizer workflow could not record its result only because the final hackathon project entry had not yet been created; this is not a CI failure.
+The workflow downloads and runs the organizer-supplied checker with GitHub
+repository secrets; verify its remote result after pushing the final release.
 
 ## Repository Structure
 
@@ -266,7 +269,7 @@ tests/           # unit, API, and integration coverage
 
 ## Submission Status
 
-The current Docker release is tagged `v0.7.2`. It provides reproducible Docker
-Compose execution for local/evaluator use; it is not a claim of production
-deployment. The technical challenge checks and real end-to-end verification
-pass. Final submission preparation is in progress.
+The most recent tagged Docker release is `v0.7.2`. The current `main` HEAD
+must be tagged before submission. It provides reproducible Docker Compose
+execution for local/evaluator use; it is not a claim of production deployment.
+The automated challenge coverage passes; live Mesh verification remains opt-in.
