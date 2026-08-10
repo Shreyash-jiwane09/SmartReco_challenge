@@ -135,9 +135,12 @@ and `SECRET_KEY` for any shared environment. Leave `SCHEDULER_ENABLED=false`
 unless this is the one process intended to send scheduled digests.
 
 ```bash
-docker compose up --build -d
+docker compose build
+docker compose up -d db
 docker compose run --rm app alembic upgrade head
 docker compose run --rm app python scripts/seed_products.py
+docker compose up -d
+docker compose ps
 ```
 
 Open [http://localhost:8000](http://localhost:8000) (API health:
