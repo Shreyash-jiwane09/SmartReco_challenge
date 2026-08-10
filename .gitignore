@@ -34,3 +34,7 @@ Thumbs.db
 
 # Runtime files
 *.log
+
+# Local runtime artifacts
+data/chroma/
+tmp/
