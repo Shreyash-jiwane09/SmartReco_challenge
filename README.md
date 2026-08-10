@@ -269,7 +269,7 @@ tests/           # unit, API, and integration coverage
 
 ## Submission Status
 
-The most recent tagged Docker release is `v0.7.2`. The current `main` HEAD
-must be tagged before submission. It provides reproducible Docker Compose
-execution for local/evaluator use; it is not a claim of production deployment.
-The automated challenge coverage passes; live Mesh verification remains opt-in.
+SmartReco provides reproducible Docker Compose execution for local/evaluator
+use; it is not a claim of production deployment. The automated challenge
+coverage passes, including the opt-in real Mesh end-to-end tests. Tag the
+commit selected for submission as the final release.
