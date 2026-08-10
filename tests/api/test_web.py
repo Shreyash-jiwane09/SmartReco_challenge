@@ -14,11 +14,13 @@ from app.api.dependencies import (
     get_db,
     get_product_service,
     get_recommendation_service,
+    get_user_service,
 )
 from app.core.security import decode_access_token
 from app.main import app
 from app.models.user import User, UserRole
 from app.services.auth_service import InvalidCredentialsError
+from app.services.user import DuplicateUserEmailError
 from app.services.product import ProductNotFoundError
 from app.services.recommendation_service import RecommendationGenerationStatus
 from app.web import AUTH_COOKIE_NAME
@@ -112,6 +114,72 @@ def test_login_page_renders(platform_client) -> None:
 
     assert response.status_code == 200
     assert "Welcome to SmartReco" in response.text
+    assert 'href="/signup"' in response.text
+
+
+@pytest.fixture
+def signup_client():
+    user_service = Mock()
+    app.dependency_overrides[get_user_service] = lambda: user_service
+    try:
+        with TestClient(app) as client:
+            yield client, user_service
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_signup_page_renders_a_regular_user_form(signup_client) -> None:
+    client, _ = signup_client
+
+    response = client.get("/signup")
+
+    assert response.status_code == 200
+    assert "Create your SmartReco account" in response.text
+    assert 'name="role"' not in response.text
+
+
+def test_signup_uses_public_registration_path_and_forces_user_role(signup_client) -> None:
+    client, user_service = signup_client
+
+    response = client.post(
+        "/signup",
+        data={
+            "email": "new-user@example.com",
+            "full_name": "New User",
+            "password": "correct-password",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?message=account-created"
+    submitted = user_service.create_user.call_args.args[0]
+    assert submitted.email == "new-user@example.com"
+    assert submitted.role is UserRole.USER
+    assert submitted.is_active is True
+
+
+def test_signup_validation_and_duplicate_email_errors_are_browser_friendly(signup_client) -> None:
+    client, user_service = signup_client
+
+    invalid = client.post(
+        "/signup",
+        data={"email": "not-an-email", "full_name": "", "password": "short"},
+    )
+    user_service.create_user.side_effect = DuplicateUserEmailError("duplicate")
+    duplicate = client.post(
+        "/signup",
+        data={
+            "email": "existing@example.com",
+            "full_name": "Existing User",
+            "password": "correct-password",
+        },
+    )
+
+    assert invalid.status_code == 422
+    assert "Enter a valid email" in invalid.text
+    assert duplicate.status_code == 409
+    assert "account with that email already exists" in duplicate.text
 
 
 def test_valid_login_sets_http_only_cookie_and_redirects(platform_client) -> None:

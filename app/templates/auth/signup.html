@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Create account | SmartReco{% endblock %}
+{% block content %}
+<section class="auth-card" aria-labelledby="signup-title">
+  <p class="eyebrow">Behavior-driven recommendations</p>
+  <h1 id="signup-title">Create your SmartReco account</h1>
+  <p>Start exploring products tailored to what you discover.</p>
+  {% if error %}<p class="message error" role="alert">{{ error }}</p>{% endif %}
+  <form action="/signup" method="post" class="stacked-form">
+    <label>Full name<input type="text" name="full_name" value="{{ full_name | default('') }}" required autocomplete="name"></label>
+    <label>Email<input type="email" name="email" value="{{ email | default('') }}" required autocomplete="email"></label>
+    <label>Password<input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+    <button type="submit">Create account</button>
+  </form>
+  <p>Already have an account? <a href="/login">Sign in</a></p>
+</section>
+{% endblock %}

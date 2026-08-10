@@ -128,7 +128,7 @@ def test_admin_can_view_real_products_and_admin_navigation(admin_client) -> None
     assert response.status_code == 200
     assert product.title in response.text
     assert product.category in response.text
-    assert "Admin" in response.text
+    assert 'href="/admin/products">Admin</a>' in response.text
     product_service.list_products.assert_called_once_with()
 
 

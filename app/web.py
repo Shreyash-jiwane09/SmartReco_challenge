@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.templating import Jinja2Templates
@@ -19,15 +19,19 @@ from app.api.dependencies import (
     get_current_user,
     get_product_service,
     get_recommendation_service,
+    get_user_service,
 )
+from app.api.v1.users import create_user as register_user
 from app.core.config import settings
 from app.core.security import AUTH_COOKIE_NAME, create_access_token
 from app.database.session import get_db
 from app.models.product import Product
 from app.models.recommendation import Recommendation
 from app.models.user import User, UserRole
+from app.schemas.auth import UserRegistrationRequest
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.auth_service import AuthenticationService, InvalidCredentialsError
+from app.services.user import UserService
 from app.services.product import (
     ProductNotFoundError,
     ProductService,
@@ -187,12 +191,75 @@ def home(user: User | None = Depends(get_web_current_user)) -> RedirectResponse:
 @router.get("/login", name="login_page")
 def login_page(
     request: Request,
+    message: str | None = None,
     user: User | None = Depends(get_web_current_user),
 ) -> Response:
     """Render the login form or skip it for an existing authenticated session."""
     if user is not None:
         return RedirectResponse("/products", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse(request, "auth/login.html", _context(request, user))
+    messages = {"account-created": "Your account has been created. Please sign in."}
+    return templates.TemplateResponse(
+        request,
+        "auth/login.html",
+        _context(request, user, message=messages.get(message)),
+    )
+
+
+@router.get("/signup", name="signup_page")
+def signup_page(
+    request: Request,
+    user: User | None = Depends(get_web_current_user),
+) -> Response:
+    """Render the public registration form for a regular SmartReco account."""
+    if user is not None:
+        return RedirectResponse("/products", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(request, "auth/signup.html", _context(request, user))
+
+
+@router.post("/signup", name="signup_submit")
+def signup_submit(
+    request: Request,
+    email: str = Form(""),
+    full_name: str = Form(""),
+    password: str = Form(""),
+    service: UserService = Depends(get_user_service),
+) -> Response:
+    """Register through the established public registration endpoint contract."""
+    values = {"email": email, "full_name": full_name}
+    try:
+        register_user(
+            UserRegistrationRequest(
+                email=email.strip(),
+                full_name=full_name.strip(),
+                password=password,
+            ),
+            service,
+        )
+    except ValidationError:
+        return templates.TemplateResponse(
+            request,
+            "auth/signup.html",
+            _context(
+                request,
+                None,
+                error="Enter a valid email, name, and password of at least 8 characters.",
+                **values,
+            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_409_CONFLICT:
+            error = "An account with that email already exists. Please sign in instead."
+        else:
+            logger.exception("Public registration failed")
+            error = "We could not create your account right now. Please try again."
+        return templates.TemplateResponse(
+            request,
+            "auth/signup.html",
+            _context(request, None, error=error, **values),
+            status_code=exc.status_code,
+        )
+    return RedirectResponse("/login?message=account-created", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/login", name="login_submit")

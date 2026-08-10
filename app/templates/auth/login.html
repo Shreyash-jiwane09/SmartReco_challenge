@@ -5,11 +5,13 @@
   <p class="eyebrow">Behavior-driven recommendations</p>
   <h1 id="login-title">Welcome to SmartReco</h1>
   <p>Sign in to explore products tailored to what you discover.</p>
+  {% if message %}<p class="message success" role="status">{{ message }}</p>{% endif %}
   {% if error %}<p class="message error" role="alert">{{ error }}</p>{% endif %}
   <form action="/login" method="post" class="stacked-form">
     <label>Email<input type="email" name="email" value="{{ email | default('') }}" required autocomplete="email"></label>
     <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
     <button type="submit">Sign in</button>
   </form>
+  <p>New to SmartReco? <a href="/signup">Create account</a></p>
 </section>
 {% endblock %}

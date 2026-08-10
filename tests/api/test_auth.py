@@ -135,6 +135,10 @@ def test_public_registration_forces_the_regular_user_role() -> None:
     assert submitted.is_active is True
 
 
+def test_public_registration_api_contract_does_not_offer_role_selection() -> None:
+    assert set(UserRegistrationRequest.model_fields) == {"email", "full_name", "password"}
+
+
 def test_auth_router_is_registered() -> None:
     assert auth_router.prefix == "/auth"
     assert [route.path for route in auth_router.routes] == ["/auth/login"]
