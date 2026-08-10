@@ -1,0 +1,450 @@
+============================================================
+SMARTRECO BUILD CHALLENGE 2026
+Official Challenge Specification
+Single Source of Truth (SSOT)
+============================================================
+
+Version: 1.0
+Status: Official Challenge Specification
+Purpose: Reference document for all architecture, implementation,
+documentation, testing, deployment and submission decisions.
+
+============================================================
+PROJECT OVERVIEW
+============================================================
+
+Build an enterprise-grade behavioral AI recommendation platform.
+
+The platform observes user behavior, understands user interests,
+retrieves relevant products using semantic search, and generates
+personalized persuasive recommendations using AI.
+
+The system should continuously improve recommendations as user
+behavior evolves.
+
+============================================================
+PROJECT STORY
+============================================================
+
+A user browses the platform.
+
+The system tracks meaningful interactions such as:
+
+- Product views
+- Searches
+- Clicks
+- Time spent
+
+The recommendation agent analyzes this behavioral history.
+
+The agent retrieves the most relevant products using semantic search
+over a vector database.
+
+The AI then generates a personalized recommendation containing:
+
+- A persuasive narrative
+- Relevant products
+- Motivation to take action
+
+Recommendations are stored and updated whenever user interests change.
+
+(Optional)
+
+Recommendations may also be delivered proactively through scheduled
+email or Telegram notifications.
+
+============================================================
+MANDATORY REQUIREMENTS
+============================================================
+
+1. Platform Foundation
+
+• Email/password authentication
+• Two roles
+    - User
+    - Admin
+• Product browsing
+• Recommendation page
+• Admin dashboard
+
+------------------------------------------------------------
+
+2. Database
+
+Design a proper relational schema containing:
+
+• Users
+• Products
+• Activity / Events
+• Recommendations
+
+------------------------------------------------------------
+
+3. Product Management
+
+Admin can
+
+• Create products
+• Update products
+• Delete products
+
+Every product must be written to
+
+• SQL Database
+AND
+• Vector Database
+
+Both stores must remain synchronized.
+
+------------------------------------------------------------
+
+4. Behavioral Event Tracking
+
+Track meaningful user behavior
+
+• Product views
+• Searches
+• Clicks
+• Time spent
+
+Requirements
+
+• Non-blocking
+• Efficient
+• Batched when appropriate
+• Does not slow the frontend
+
+Store
+
+• User
+• Event
+• Timestamp
+
+------------------------------------------------------------
+
+5. Agentic Recommendation Engine
+
+The backend AI agent should
+
+• Analyze user behavior
+• Understand interests
+• Retrieve relevant products using semantic search
+• Generate persuasive recommendations
+• Recommend real catalog products only
+• Store recommendations
+• Refresh recommendations as behavior evolves
+
+------------------------------------------------------------
+
+6. Production Thinking
+
+The implementation should
+
+• Avoid unnecessary LLM calls
+• Use meaningful AI triggers
+• Cache expensive operations
+• Batch event writes
+• Avoid redundant processing
+
+============================================================
+BONUS FEATURES
+============================================================
+
+⭐ LangGraph
+
+Use an explicit reasoning workflow.
+
+Possible stages
+
+• Analyze
+• Retrieve
+• Evaluate
+• Refine
+• Generate
+
+------------------------------------------------------------
+
+⭐ Scheduled Delivery
+
+Use
+
+• APScheduler
+OR
+• Celery
+
+Send recommendation digests by
+
+• Email
+OR
+• Telegram
+
+------------------------------------------------------------
+
+⭐ Observability
+
+Integrate
+
+• LangSmith
+
+Trace the complete recommendation workflow.
+
+------------------------------------------------------------
+
+⭐ Retrieval Improvements
+
+Examples
+
+• Metadata filtering
+• Re-ranking
+• Better chunking
+• Graph-based retrieval
+
+============================================================
+REQUIRED TECHNOLOGY STACK
+============================================================
+
+Backend
+
+FastAPI (Selected)
+
+------------------------------------------------------------
+
+LLM Gateway
+
+Mesh API (Mandatory)
+
+------------------------------------------------------------
+
+Vector Database
+
+ChromaDB (Selected)
+
+------------------------------------------------------------
+
+Frontend
+
+Jinja2
+JavaScript
+
+------------------------------------------------------------
+
+Database
+
+PostgreSQL (Selected)
+
+------------------------------------------------------------
+
+ORM
+
+SQLAlchemy
+
+------------------------------------------------------------
+
+Migration
+
+Alembic
+
+------------------------------------------------------------
+
+Agent
+
+LangGraph
+
+------------------------------------------------------------
+
+Scheduler
+
+APScheduler
+
+------------------------------------------------------------
+
+Observability
+
+LangSmith
+
+------------------------------------------------------------
+
+Deployment
+
+Docker
+
+GitHub Actions
+
+============================================================
+SECURITY REQUIREMENTS
+============================================================
+
+Never commit
+
+.env
+
+Store secrets in
+
+GitHub Repository Secrets
+
+Required secrets
+
+• MESH_API_KEY
+• SUBMISSION_TOKEN
+
+============================================================
+REPOSITORY REQUIREMENTS
+============================================================
+
+Repository must contain
+
+• Source code
+• README.md
+• requirements.txt
+• .gitignore
+• Documentation
+• GitHub Actions workflow
+
+============================================================
+AUTOMATED CHECKS
+============================================================
+
+Critical
+
+✓ Python syntax
+✓ Dependencies
+✓ Mesh API usage
+
+Advisory
+
+✓ README
+✓ .gitignore
+✓ .env ignored
+
+============================================================
+JUDGING FOCUS
+============================================================
+
+The project should demonstrate
+
+• Rich behavioral tracking
+
+• SQL + Vector dual-write
+
+• Semantic retrieval
+
+• Agentic recommendation generation
+
+• Persuasive AI messaging
+
+• Production engineering
+
+• Efficient AI triggering
+
+• Caching
+
+• Batched event processing
+
+• Clean architecture
+
+============================================================
+PROJECT ARCHITECTURE (FROZEN)
+============================================================
+
+Presentation Layer
+
+↓
+
+Application Layer
+
+↓
+
+AI Layer
+
+↓
+
+Infrastructure Layer
+
+============================================================
+PROJECT SPRINTS (FROZEN)
+============================================================
+
+Sprint 0
+
+Repository
+Architecture
+Environment
+
+Sprint 1
+
+Platform Foundation
+
+Sprint 2
+
+Dual Write Product Management
+
+Sprint 3
+
+Behavior Tracking
+
+Sprint 4
+
+Recommendation Agent
+
+Sprint 5
+
+Production Features
+
+Sprint 6
+
+Testing
+Deployment
+Submission
+
+============================================================
+WORKFLOW
+============================================================
+
+Challenge
+
+↓
+
+Architecture
+
+↓
+
+Design
+
+↓
+
+Implementation
+
+↓
+
+Testing
+
+↓
+
+Documentation
+
+↓
+
+Git Commit
+
+↓
+
+Deployment
+
+============================================================
+PROJECT PRINCIPLES
+============================================================
+
+The challenge specification is the Single Source of Truth.
+
+Every implementation decision must trace back to the challenge.
+
+The architecture, repository structure, and technology stack are
+considered frozen unless a critical blocker requires change.
+
+The objective is to build a production-quality behavioral AI
+recommendation platform demonstrating enterprise engineering
+practices.
+
+============================================================
+END OF DOCUMENT
+============================================================

@@ -1,409 +1,180 @@
-# 🚀 SmartReco — Enterprise Behavioral AI Recommendation Platform
+# SmartReco
 
-> **An AI-powered behavioral recommendation platform that observes user interactions, understands user intent, retrieves relevant products using semantic search, and generates personalized, persuasive recommendations through an agentic AI workflow.**
+SmartReco is a behavioral AI recommendation platform built for the SmartReco Build Challenge 2026. It turns authenticated browsing activity into evolving interest profiles, retrieves relevant catalog products semantically, and produces catalog-grounded recommendations.
 
----
+## What SmartReco Does
 
-# 🎯 SmartReco Build Challenge 2026
+Users browse a Jinja-powered product catalog while the browser records product views, searches, clicks, and time spent. Events are batched and ingested without blocking normal browsing. The backend derives a `BehavioralProfile`, applies trigger and cooldown rules, retrieves products through Mesh embeddings and ChromaDB, grounds them against PostgreSQL, and uses a LangGraph workflow plus Mesh Chat to generate and persist recommendations.
 
-SmartReco is an enterprise-grade AI recommendation platform built for the **SmartReco Build Challenge 2026**.
+Unlike static “related product” widgets, SmartReco responds to meaningful changes in a user's behavior while avoiding generation on every interaction.
 
-Unlike traditional recommendation systems that simply display *related products*, SmartReco continuously observes user behavior, understands evolving interests, retrieves the most relevant products from a vector database using semantic search, and generates personalized recommendations backed by Retrieval-Augmented Generation (RAG).
+## Professional Learning Catalog
 
-The objective is to demonstrate **production-quality backend engineering**, combining behavioral analytics, modern AI workflows, scalable architecture, and efficient system design.
+SmartReco includes a 30-course, multi-domain professional e-learning catalog. Course titles and descriptions form meaningful AI, backend, and data semantic neighborhoods, while realistic cross-domain courses provide useful retrieval distractors. Catalog products are seeded through `ProductService`, which synchronizes PostgreSQL and ChromaDB.
 
----
+## Challenge Requirement Coverage
 
-# 📖 Project Overview
+| Requirement | Status |
+| --- | --- |
+| Email/password authentication and User/Admin roles | Complete |
+| Authenticated product browsing, search, and detail | Complete |
+| Recommendation page and refresh UX | Complete |
+| Admin product create, update, and delete | Complete |
+| Product SQL + ChromaDB synchronization | Complete |
+| Batched behavioral tracking (`PRODUCT_VIEW`, `SEARCH`, `CLICK`, `TIME_SPENT`) | Complete |
+| Behavioral intelligence, trigger, and cooldown | Complete |
+| Semantic retrieval and PostgreSQL catalog grounding | Complete |
+| Mesh API recommendation generation | Complete |
+| Recommendation persistence | Complete |
+| Efficient trigger-controlled AI generation | Complete |
 
-The platform continuously learns from user interactions such as:
+### Verified bonus feature
 
-* Product Views
-* Searches
-* Clicks
-* Time Spent
-* Browsing Patterns
+- **LangGraph** — explicit recommendation-generation workflow.
 
-An intelligent backend recommendation agent analyzes this behavioral history, retrieves relevant products through semantic search, reasons over the collected information, and generates persuasive recommendations tailored to each user's interests.
+APScheduler, scheduled delivery, LangSmith observability, and advanced reranking are not claimed as implemented.
 
-Recommendations evolve automatically as user behavior changes.
+## Architecture
 
----
-
-# 🏆 Challenge Alignment
-
-This project is designed to satisfy the complete SmartReco Build Challenge specification.
-
-### Mandatory Requirements
-
-* ✅ Platform Foundation
-* ✅ Product Management
-* ✅ Dual-Write Architecture
-* ✅ Behavioral Event Tracking
-* ✅ Agentic Recommendation Engine
-* ✅ Production Engineering
-
-### Bonus Features
-
-* ⭐ LangGraph Workflow
-* ⭐ APScheduler
-* ⭐ LangSmith Observability
-* ⭐ Advanced Retrieval Pipeline
-* ⭐ Scheduled Recommendation Delivery
-
----
-
-# 📈 Project Progress
-
-| Module                    | Status         |
-| ------------------------- | -------------- |
-| Repository Setup          | ✅ Completed    |
-| Documentation             | 🟡 In Progress |
-| Architecture              | 🟡 In Progress |
-| Platform Foundation       | ⬜ Pending      |
-| Product Management        | ⬜ Pending      |
-| Dual-Write Pipeline       | ⬜ Pending      |
-| Behavioral Event Tracking | ⬜ Pending      |
-| Recommendation Engine     | ⬜ Pending      |
-| Production Features       | ⬜ Pending      |
-| Testing                   | ⬜ Pending      |
-| Deployment                | ⬜ Pending      |
-
----
-
-# ✨ Key Features
-
-## 🔐 Platform Foundation
-
-* Email & Password Authentication
-* Role-Based Access Control
-* Admin Dashboard
-* User Dashboard
-* Product Catalog
-
----
-
-## 📦 Product Management
-
-* Product CRUD
-* PostgreSQL Storage
-* ChromaDB Storage
-* Dual-Write Synchronization
-* Semantic Product Indexing
-
----
-
-## 📊 Behavioral Event Tracking
-
-* Product View Tracking
-* Search Tracking
-* Click Tracking
-* Time Spent Tracking
-* Batched Event Collection
-* Non-Blocking Tracking Pipeline
-
----
-
-## 🤖 Agentic Recommendation Engine
-
-* User Interest Analysis
-* Semantic Retrieval
-* Retrieval-Augmented Generation (RAG)
-* Personalized Recommendation Generation
-* Persuasive AI Messaging
-* Recommendation Persistence
-* Recommendation Refresh
-
----
-
-## ⚡ Production Engineering
-
-* Intelligent AI Triggering
-* Recommendation Caching
-* Efficient Event Processing
-* Background Scheduling
-* Logging
-* Error Handling
-* Production-Oriented Architecture
-
----
-
-# 🏗️ System Architecture
-
-```
-                           User
-                             │
-                             ▼
-                    Presentation Layer
-                             │
-                             ▼
-                    Application Layer
-                             │
-          ┌──────────────────┴──────────────────┐
-          ▼                                     ▼
-   PostgreSQL Database                    ChromaDB
-          │                                     │
-          └──────────────────┬──────────────────┘
-                             ▼
-                 Agentic Recommendation Layer
-                             │
-                 Semantic Retrieval (RAG)
-                             │
-                         Mesh API
-                             │
-                             ▼
-               Personalized Recommendations
+```text
+Browser / Jinja UI
+        ↓
+FastAPI → batched behavioral events → PostgreSQL
+        ↓
+BehavioralProfile → trigger / cooldown
+        ↓
+Mesh embeddings → ChromaDB semantic retrieval
+        ↓
+PostgreSQL catalog grounding
+        ↓
+LangGraph + Mesh Chat
+        ↓
+Grounded recommendation persistence → recommendation UI
 ```
 
----
+Admin product mutations follow a parallel dual-write path:
 
-# 🛠 Technology Stack
-
-| Category        | Technology            |
-| --------------- | --------------------- |
-| Backend         | FastAPI               |
-| ORM             | SQLAlchemy            |
-| Database        | PostgreSQL            |
-| Vector Database | ChromaDB              |
-| AI Gateway      | Mesh API              |
-| Agent Framework | LangGraph *(Bonus)*   |
-| Scheduler       | APScheduler *(Bonus)* |
-| Observability   | LangSmith *(Bonus)*   |
-| Frontend        | Jinja2 + JavaScript   |
-| Deployment      | Docker                |
-| CI/CD           | GitHub Actions        |
-
----
-
-# ✅ Challenge Implementation Status
-
-This checklist maps directly to the official SmartReco Build Challenge requirements.
-
-## 🏗 Platform Foundation
-
-* [ ] Email/Password Authentication
-* [ ] Role-Based Access Control
-* [ ] User Dashboard
-* [ ] Admin Dashboard
-* [ ] Product Browsing
-
----
-
-## 📦 Product Management
-
-* [ ] Product CRUD
-* [ ] PostgreSQL Storage
-* [ ] ChromaDB Storage
-* [ ] Dual-Write Synchronization
-
----
-
-## 📊 Behavioral Event Tracking
-
-* [ ] Product View Tracking
-* [ ] Search Tracking
-* [ ] Click Tracking
-* [ ] Time Spent Tracking
-* [ ] Batched Event Processing
-* [ ] Non-Blocking Event Collection
-
----
-
-## 🤖 Agentic Recommendation Engine
-
-* [ ] User Interest Analysis
-* [ ] Semantic Retrieval
-* [ ] Retrieval-Augmented Generation (RAG)
-* [ ] Persuasive Recommendation Generation
-* [ ] Recommendation Persistence
-* [ ] Recommendation Refresh
-
----
-
-## ⚡ Production Engineering
-
-* [ ] Intelligent AI Triggering
-* [ ] Recommendation Caching
-* [ ] Efficient Event Storage
-* [ ] Background Processing
-* [ ] Logging
-* [ ] Error Handling
-
----
-
-## ⭐ Bonus Features
-
-* [ ] LangGraph Workflow
-* [ ] APScheduler Integration
-* [ ] LangSmith Observability
-* [ ] Advanced Retrieval Optimization
-* [ ] Scheduled Recommendation Delivery
-
----
-
-## 🚀 Submission
-
-* [ ] Public GitHub Repository
-* [ ] Complete Documentation
-* [ ] Architecture Documentation
-* [ ] GitHub Actions Workflow
-* [ ] Deployment Guide
-* [ ] Demo Video *(Optional)*
-* [ ] Live Deployment *(Optional)*
-
----
-
-# 📂 Repository Structure
-
-```
-SmartReco/
-
-├── app/
-├── architecture/
-├── docs/
-├── tests/
-├── docker/
-├── scripts/
-├── data/
-├── logs/
-├── submission/
-└── .github/
+```text
+Admin UI → ProductService → PostgreSQL + ChromaDB synchronization
 ```
 
-For a complete repository guide, see **PROJECT_INDEX.md**.
+## Technology Stack
 
----
+- FastAPI, Jinja2, JavaScript
+- PostgreSQL, SQLAlchemy, Alembic
+- ChromaDB
+- Mesh API
+- LangGraph
+- GitHub Actions
 
-# 🚀 Getting Started
+## Setup
 
-## Clone Repository
+Prerequisites: Python 3.11, PostgreSQL, and a Mesh API key.
 
 ```bash
 git clone <repository-url>
-cd SmartReco
-```
-
----
-
-## Create Virtual Environment
-
-```bash
+cd smartreco
 python -m venv .venv
 ```
 
-### Windows
+Activate the environment:
 
-```bash
-.venv\Scripts\activate
+```powershell
+# Windows
+.venv\Scripts\Activate.ps1
 ```
 
-### Linux / macOS
-
 ```bash
+# Linux/macOS
 source .venv/bin/activate
 ```
 
----
-
-## Install Dependencies
+Install dependencies and create local configuration:
 
 ```bash
 pip install -r requirements.txt
+copy .env.example .env  # Windows
+# cp .env.example .env  # Linux/macOS
 ```
 
----
-
-## Configure Environment
-
-Create a `.env` file based on `.env.example`.
-
-Example:
-
-```env
-MESH_API_KEY=your_mesh_api_key
-DATABASE_URL=your_database_url
-```
-
----
-
-## Run the Application
+Configure PostgreSQL in `.env`, then apply migrations and start the application:
 
 ```bash
-uvicorn app.main:app --reload
+alembic upgrade head
+python -m uvicorn app.main:app --reload
 ```
 
----
+The application serves API documentation at `/docs` by default.
 
-# 📚 Documentation
+### Environment configuration
 
-* Project documentation: `docs/`
-* Architecture documentation: `architecture/`
-* Repository navigation: `PROJECT_INDEX.md`
+Use `.env.example` as the complete template. Key runtime settings are:
 
----
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection URL |
+| `MESH_API_KEY` | Mesh embeddings and chat access |
+| `MESH_EMBEDDING_MODEL`, `MESH_CHAT_MODEL` | Mesh model selection |
+| `CHROMA_COLLECTION_NAME`, `CHROMA_PERSIST_DIRECTORY` | Vector-store configuration |
+| `SECRET_KEY`, `JWT_ALGORITHM` | Authentication token configuration |
+| `CORS_ORIGINS` | Allowed browser origins |
 
-# 🧪 Testing
+`SUBMISSION_TOKEN` is not an application runtime setting. Store it only as a GitHub repository secret for the official challenge workflow. `MESH_API_KEY` is required both at runtime and as that workflow's GitHub secret.
 
-Project tests are available under:
+## Demo Flow
 
+### User
+
+1. Log in as a regular user.
+2. Browse, search, and open relevant products; spend time on a product.
+3. SmartReco batches the behavioral events.
+4. Open **Recommendations** when the trigger is eligible.
+5. Review grounded products, reasons, and the generated narrative.
+
+### Admin
+
+1. Log in as an administrator and open **Admin**.
+2. Create, edit, or delete a product.
+3. ProductService keeps PostgreSQL and ChromaDB synchronized.
+
+## Verification Evidence
+
+| Check | Result |
+| --- | --- |
+| Full regression suite | 244 passed, 0 failed, 2 expected skips |
+| Python compile gate | Passed |
+| Real semantic retrieval E2E | Passed — Mesh embeddings, isolated ChromaDB, and PostgreSQL grounding of four catalog products |
+| Real recommendation E2E | Passed — persisted behavior through LangGraph, Mesh Chat, grounding, and PostgreSQL recommendation read-back |
+| SQL/Chroma dual-write | Passed — create, update, and delete |
+| Professional catalog | 30 active courses seeded; PostgreSQL ↔ Chroma synchronization verified |
+| Catalog seed idempotency | Verified — second run created 0 and skipped 30 |
+| Official challenge checks | 4/4 critical checks passed |
+
+The organizer workflow could not record its result only because the final hackathon project entry had not yet been created; this is not a CI failure.
+
+## Repository Structure
+
+```text
+app/
+  ai/            # behavior, retrieval, Mesh, and LangGraph components
+  api/           # FastAPI endpoints
+  services/      # application services
+  repositories/  # PostgreSQL persistence
+  templates/     # Jinja pages
+  static/        # browser UI and event tracking
+alembic/         # database migrations
+tests/           # unit, API, and integration coverage
+.github/workflows/ # official challenge checks
 ```
-tests/
-```
 
----
+## Security and Production Thinking
 
-# 🐳 Deployment
+- Passwords are hashed; browser authentication uses an HTTP-only JWT cookie.
+- User/Admin authorization restricts product mutations to administrators.
+- Secrets are environment-driven and `.env` is excluded from Git.
+- Recommendations are catalog-grounded before persistence.
+- Frontend tracking batches events; profile thresholds and cooldowns prevent unnecessary AI calls.
 
-Deployment resources:
+## Submission Status
 
-* Docker
-* Docker Compose
-* GitHub Actions
-
----
-
-# ⭐ Bonus Features
-
-The project aims to implement the following advanced capabilities:
-
-* LangGraph Agent Workflow
-* APScheduler Background Jobs
-* LangSmith Observability
-* Retrieval Optimization
-* Scheduled Email Recommendations
-
----
-
-# 🚀 Future Enhancements
-
-Beyond the challenge scope, potential future improvements include:
-
-* Multi-language Recommendations
-* Hybrid Retrieval with Re-ranking
-* Analytics Dashboard
-* Recommendation Feedback Loop
-* Multi-Tenant Architecture
-* A/B Testing for Recommendation Strategies
-
----
-
-# 📄 License
-
-This project is licensed under the **MIT License**.
-
----
-
-# 🙏 Acknowledgements
-
-* SmartReco Build Challenge 2026
-* Mesh API
-* FastAPI
-* SQLAlchemy
-* ChromaDB
-* LangGraph
-* LangSmith
-* APScheduler
-
----
-
-> **SmartReco is built to demonstrate production-grade backend engineering by combining behavioral analytics, semantic retrieval, agentic AI workflows, and scalable system design into a modern recommendation platform.**
+The technical challenge checks and real end-to-end verification pass. Final submission preparation is in progress.
