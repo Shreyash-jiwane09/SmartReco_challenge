@@ -69,6 +69,16 @@ def get_recommendation_service(
     vector_service: ProductVectorService = Depends(get_product_vector_service),
 ) -> RecommendationService:
     """Build the complete recommendation pipeline for the current request."""
+    return build_recommendation_service(db, vector_service)
+
+
+def build_recommendation_service(
+    db: Session,
+    vector_service: ProductVectorService | None = None,
+) -> RecommendationService:
+    """Build the recommendation pipeline for an HTTP request or background job."""
+    if vector_service is None:
+        vector_service = ProductVectorService.from_settings()
     product_repository = ProductRepository(db)
     behavior_profile_service = BehaviorProfileService(
         EventRepository(db),
@@ -144,6 +154,7 @@ __all__ = [
     "get_product_service",
     "get_product_vector_service",
     "get_recommendation_service",
+    "build_recommendation_service",
     "get_user_service",
     "require_admin",
 ]

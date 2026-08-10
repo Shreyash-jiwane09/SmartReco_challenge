@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     langsmith_api_key: str = Field(default="", repr=False)
     langsmith_project: str = "smartreco"
 
+    # Scheduled recommendation processing. Disabled unless explicitly enabled.
+    recommendation_digest_hour: int = Field(default=9, ge=0, le=23)
+    recommendation_digest_minute: int = Field(default=0, ge=0, le=59)
+    recommendation_digest_timezone: str = "UTC"
+    scheduler_enabled: bool = False
+
     # Security
     secret_key: str = Field(min_length=32, repr=False)
     jwt_algorithm: str = "HS256"
