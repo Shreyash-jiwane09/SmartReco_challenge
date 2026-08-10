@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "SmartReco"
-    app_version: str = "0.1.0"
+    app_version: str = "0.7.0"
     environment: Literal["development", "testing", "staging", "production"] = "development"
     debug: bool = False
 

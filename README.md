@@ -28,11 +28,23 @@ SmartReco includes a 30-course, multi-domain professional e-learning catalog. Co
 | Recommendation persistence | Complete |
 | Efficient trigger-controlled AI generation | Complete |
 
-### Verified bonus feature
+### Bonus feature status
 
-- **LangGraph** — explicit recommendation-generation workflow.
-
-APScheduler, scheduled delivery, LangSmith observability, and advanced reranking are not claimed as implemented.
+- **LangGraph — VERIFIED.** The explicit recommendation workflow runs
+  `prepare_context` → `generate_recommendation` → `validate_grounding`.
+- **Retrieval polish — VERIFIED.** Chroma retrieval filters to active-product
+  metadata, then PostgreSQL re-grounds candidates and rejects invalid, stale,
+  or inactive products. This is not reranking, hybrid search, or graph
+  retrieval.
+- **LangSmith — IMPLEMENTED AND VERIFIED.** Optional tracing records
+  recommendation workflow visibility in the `smartreco-build-challenge-2026`
+  trace project; normal operation remains silent when tracing is disabled.
+- **Scheduled proactive delivery — IMPLEMENTED BUT NOT RUNTIME VERIFIED.**
+  APScheduler runs the existing recommendation service for eligible users and
+  sends SMTP digests from persisted, catalog-grounded recommendations.
+  Implementation and tests are complete; final scheduler-to-email runtime
+  proof should be captured before claiming end-to-end scheduled delivery
+  verification.
 
 ## Architecture
 
