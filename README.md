@@ -27,6 +27,7 @@ SmartReco includes a 30-course, multi-domain professional e-learning catalog. Co
 | Mesh API recommendation generation | Complete |
 | Recommendation persistence | Complete |
 | Efficient trigger-controlled AI generation | Complete |
+| Dockerized execution | Verified Dockerfile + Docker Compose for FastAPI, PostgreSQL, explicit migrations, persistent PostgreSQL/Chroma data, and catalog seeding |
 
 ### Bonus feature status
 
@@ -39,12 +40,10 @@ SmartReco includes a 30-course, multi-domain professional e-learning catalog. Co
 - **LangSmith — IMPLEMENTED AND VERIFIED.** Optional tracing records
   recommendation workflow visibility in the `smartreco-build-challenge-2026`
   trace project; normal operation remains silent when tracing is disabled.
-- **Scheduled proactive delivery — IMPLEMENTED BUT NOT RUNTIME VERIFIED.**
+- **Scheduled proactive delivery — IMPLEMENTED AND RUNTIME VERIFIED.**
   APScheduler runs the existing recommendation service for eligible users and
   sends SMTP digests from persisted, catalog-grounded recommendations.
-  Implementation and tests are complete; final scheduler-to-email runtime
-  proof should be captured before claiming end-to-end scheduled delivery
-  verification.
+  The end-to-end scheduler-to-email path has been runtime verified.
 
 ## Architecture
 
@@ -77,11 +76,105 @@ Admin UI → ProductService → PostgreSQL + ChromaDB synchronization
 - ChromaDB
 - Mesh API
 - LangGraph
+- Docker, Docker Compose
 - GitHub Actions
 
-## Setup
+## Docker Quick Start
 
-Prerequisites: Python 3.11, PostgreSQL, and a Mesh API key.
+Option A — Docker Setup is the recommended reproducible path for evaluators.
+It runs the FastAPI/Jinja2 application and PostgreSQL in Compose; Chroma is
+embedded in `app` and persisted in a named volume. Migrations and catalog
+seeding are explicit release operations.
+
+### 1. Clone
+
+```bash
+git clone <repository-url>
+cd smartreco
+```
+
+### 2. Configure environment
+
+Create `.env` from the supplied template:
+
+```powershell
+# Windows PowerShell
+Copy-Item .env.example .env
+```
+
+```bash
+# Linux/macOS
+cp .env.example .env
+```
+
+For a local Compose evaluation, the template's `POSTGRES_DB`, `POSTGRES_USER`,
+and `POSTGRES_PASSWORD` values are the Compose defaults. Compose overrides
+`DATABASE_URL` inside `app` so it connects to `db`, not `localhost`.
+
+Set `MESH_API_KEY` before seeding the catalog or using AI recommendations. The
+application can start without it, but the seed uses Mesh embeddings as part of
+the PostgreSQL + Chroma `ProductService` dual-write. Replace the template
+`SECRET_KEY` and `POSTGRES_PASSWORD` in every shared or non-development
+environment. Keep `SCHEDULER_ENABLED=false` unless this instance is intended
+to send scheduled digests.
+
+### 3. Build, migrate, seed, and start
+
+```bash
+docker compose build
+docker compose up -d db
+docker compose run --rm app alembic upgrade head
+docker compose run --rm app python scripts/seed_products.py
+docker compose up -d
+docker compose ps
+```
+
+The idempotent seed defines 30 professional e-learning courses. It creates
+only missing courses through `ProductService`, synchronizing PostgreSQL,
+Mesh embeddings, and Chroma.
+
+### 4. Open SmartReco
+
+Open [http://localhost:8000](http://localhost:8000), check
+[health](http://localhost:8000/api/v1/health), or explore
+[Swagger UI](http://localhost:8000/docs).
+
+### 5. Stop or reset
+
+```bash
+docker compose down
+```
+
+`postgres_data` and `chroma_data` are named volumes, so this preserves the
+database and vector store. Use `docker compose down -v` only to remove both
+persisted stores and start fresh.
+
+### Docker architecture
+
+Compose runs `app` (FastAPI, Jinja2, and embedded Chroma) and `db`
+(PostgreSQL 16). Mesh API remains external and is needed for embedding and
+recommendation generation. LangSmith and SMTP are optional external services.
+
+For a foreground startup, use `docker compose up --build` instead of `-d`.
+
+### Environment configuration
+
+Use `.env.example` as the complete template.
+
+| Category | Variables | Purpose |
+| --- | --- |
+| Core Docker | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `SECRET_KEY` | Database defaults and authentication signing. Compose sets its internal `DATABASE_URL` and Chroma directory. |
+| AI | `MESH_API_KEY` | Required for catalog seeding and AI recommendations; blank is acceptable only when those paths are not used. |
+| AI tuning | `MESH_EMBEDDING_MODEL`, `MESH_CHAT_MODEL`, `CHROMA_COLLECTION_NAME` | Optional model and collection configuration. |
+| Optional observability | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT` | Disabled by default. |
+| Optional proactive delivery | `SCHEDULER_ENABLED`, `RECOMMENDATION_DIGEST_HOUR`, `RECOMMENDATION_DIGEST_MINUTE`, `RECOMMENDATION_DIGEST_TIMEZONE`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_TLS`, `SMTP_TIMEOUT_SECONDS` | Scheduler and SMTP are disabled/unconfigured by default. |
+
+`SUBMISSION_TOKEN` is not an application runtime setting. Store it only as a GitHub repository secret for the official challenge workflow. `MESH_API_KEY` is required both at runtime and as that workflow's GitHub secret.
+
+## Local Python Setup
+
+Option B — Local Python Setup is for developer/manual execution. Prerequisites:
+Python 3.11, PostgreSQL, and a Mesh API key for catalog seeding or AI paths.
 
 ```bash
 git clone <repository-url>
@@ -105,8 +198,8 @@ Install dependencies and create local configuration:
 
 ```bash
 pip install -r requirements.txt
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/macOS
+# Windows PowerShell: Copy-Item .env.example .env
+cp .env.example .env
 ```
 
 Configure PostgreSQL in `.env`, then apply migrations and start the application:
@@ -115,56 +208,6 @@ Configure PostgreSQL in `.env`, then apply migrations and start the application:
 alembic upgrade head
 python -m uvicorn app.main:app --reload
 ```
-
-The application serves API documentation at `/docs` by default.
-
-## Docker Quick Start
-
-This runs SmartReco and PostgreSQL in containers while keeping the embedded
-Chroma store in a named Docker volume. Mesh, LangSmith, and SMTP remain
-external and optional. Docker does not run migrations or seed the catalog
-automatically, keeping those release operations explicit and repeatable.
-
-```bash
-cp .env.example .env  # Windows PowerShell: Copy-Item .env.example .env
-```
-
-Set `MESH_API_KEY` in `.env` before catalog seeding. The supplied
-`POSTGRES_*` values are local-development defaults; replace `POSTGRES_PASSWORD`
-and `SECRET_KEY` for any shared environment. Leave `SCHEDULER_ENABLED=false`
-unless this is the one process intended to send scheduled digests.
-
-```bash
-docker compose build
-docker compose up -d db
-docker compose run --rm app alembic upgrade head
-docker compose run --rm app python scripts/seed_products.py
-docker compose up -d
-docker compose ps
-```
-
-Open [http://localhost:8000](http://localhost:8000) (API health:
-[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)).
-The catalog seed uses `ProductService`, so it needs valid Mesh credentials to
-write both PostgreSQL and Chroma. Stop the stack with `docker compose down`;
-do not add `-v` if you want to preserve the database and vector store.
-
-For a foreground startup, use `docker compose up --build` instead of `-d`.
-
-### Environment configuration
-
-Use `.env.example` as the complete template. Key runtime settings are:
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection URL |
-| `MESH_API_KEY` | Mesh embeddings and chat access |
-| `MESH_EMBEDDING_MODEL`, `MESH_CHAT_MODEL` | Mesh model selection |
-| `CHROMA_COLLECTION_NAME`, `CHROMA_PERSIST_DIRECTORY` | Vector-store configuration |
-| `SECRET_KEY`, `JWT_ALGORITHM` | Authentication token configuration |
-| `CORS_ORIGINS` | Allowed browser origins |
-
-`SUBMISSION_TOKEN` is not an application runtime setting. Store it only as a GitHub repository secret for the official challenge workflow. `MESH_API_KEY` is required both at runtime and as that workflow's GitHub secret.
 
 ## Demo Flow
 
@@ -193,6 +236,7 @@ Use `.env.example` as the complete template. Key runtime settings are:
 | SQL/Chroma dual-write | Passed — create, update, and delete |
 | Professional catalog | 30 active courses seeded; PostgreSQL ↔ Chroma synchronization verified |
 | Catalog seed idempotency | Verified — second run created 0 and skipped 30 |
+| Docker Compose configuration | Passed — `app` and PostgreSQL `db`, health checks, port 8000, and named PostgreSQL/Chroma volumes resolve successfully |
 | Official challenge checks | 4/4 critical checks passed |
 
 The organizer workflow could not record its result only because the final hackathon project entry had not yet been created; this is not a CI failure.
@@ -222,4 +266,7 @@ tests/           # unit, API, and integration coverage
 
 ## Submission Status
 
-The technical challenge checks and real end-to-end verification pass. Final submission preparation is in progress.
+The current Docker release is tagged `v0.7.2`. It provides reproducible Docker
+Compose execution for local/evaluator use; it is not a claim of production
+deployment. The technical challenge checks and real end-to-end verification
+pass. Final submission preparation is in progress.
