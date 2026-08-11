@@ -37,15 +37,15 @@ SmartReco includes a 30-course, multi-domain professional e-learning catalog. Co
   metadata, then PostgreSQL re-grounds candidates and rejects invalid, stale,
   or inactive products. This is not reranking, hybrid search, or graph
   retrieval.
-- **LangSmith — IMPLEMENTED / LIVE VERIFICATION PENDING.** Optional tracing records
-  recommendation workflow visibility in the `smartreco-build-challenge-2026`
-  trace project when configured; normal operation remains silent when tracing
-  is disabled.
-- **Scheduled proactive delivery — IMPLEMENTED / LIVE VERIFICATION PENDING.**
+- **LangSmith — IMPLEMENTED / LIVE TRACE VERIFIED.** Optional tracing records
+  the `prepare_context`, `generate_recommendation`, and `validate_grounding`
+  workflow stages in the `smartreco-build-challenge-2026` trace project when
+  configured; normal operation remains silent when tracing is disabled.
+- **Scheduled proactive delivery — IMPLEMENTED / LIVE DELIVERY VERIFIED.**
   APScheduler runs the existing recommendation service for eligible users and
-  sends SMTP digests from persisted, catalog-grounded recommendations.
-  The scheduler and SMTP path are covered by automated tests; no live
-  scheduler-to-email delivery evidence is stored in this repository.
+  sends SMTP digests from persisted, catalog-grounded recommendations. The
+  scheduler and SMTP path are covered by automated tests and live delivery
+  verification is complete.
 
 ## Architecture
 
@@ -233,8 +233,9 @@ python -m uvicorn app.main:app --reload
 | --- | --- |
 | Full regression suite | 244 passed, 0 failed, 2 expected skips |
 | Python compile gate | Passed |
-| Real semantic retrieval E2E | Opt-in test available; not run in this audit (requires `RUN_REAL_MESH_E2E=true` and Mesh credentials) |
-| Real recommendation E2E | Opt-in test available; not run in this audit (requires `RUN_REAL_MESH_E2E=true` and Mesh credentials) |
+| Real semantic retrieval E2E | Passed with `RUN_REAL_MESH_E2E=true` |
+| LangSmith workflow trace | Live trace verified |
+| Scheduled proactive delivery | Live delivery verified |
 | SQL/Chroma dual-write | Passed — create, update, and delete |
 | Professional catalog | 30 active courses seeded; PostgreSQL ↔ Chroma synchronization verified |
 | Catalog seed idempotency | Verified — second run created 0 and skipped 30 |
@@ -243,6 +244,57 @@ python -m uvicorn app.main:app --reload
 
 The workflow downloads and runs the organizer-supplied checker with GitHub
 repository secrets; verify its remote result after pushing the final release.
+
+### Submission Evidence Gallery
+
+All screenshots are stored in [`docs/evidence`](docs/evidence) with descriptive
+filenames for reviewer-friendly verification.
+
+<details>
+<summary>Product experience and behavioral tracking</summary>
+
+![Login page](docs/evidence/login-page.png)
+
+![Authenticated catalog](docs/evidence/authenticated-catalog.png)
+
+![Recommendation page](docs/evidence/recommendation-page.png)
+
+![Behavioral intelligence tracking](docs/evidence/behavioral-intelligence-tracking.png)
+
+![Persisted PostgreSQL behavior events](docs/evidence/postgresql-behavior-events.png)
+</details>
+
+<details>
+<summary>Semantic retrieval, grounding, and observability</summary>
+
+![Semantic retrieval overview](docs/evidence/semantic-retrieval-overview.png)
+
+![Semantic retrieval pipeline](docs/evidence/semantic-retrieval-pipeline.png)
+
+![Semantic retrieval grounding](docs/evidence/semantic-retrieval-grounding.png)
+
+![Real semantic retrieval E2E](docs/evidence/real-semantic-retrieval-e2e.png)
+
+![LangSmith workflow trace](docs/evidence/langsmith-workflow-trace.png)
+</details>
+
+<details>
+<summary>Reliability, Docker, and release evidence</summary>
+
+![SQL and Chroma dual-write test](docs/evidence/sql-chroma-dual-write-test.png)
+
+![Full test suite](docs/evidence/full-test-suite.png)
+
+![Pytest regression results](docs/evidence/pytest-regression-results.png)
+
+![Docker Compose startup](docs/evidence/docker-compose-startup.png)
+
+![Docker Compose health](docs/evidence/docker-compose-health.png)
+
+![Docker terminal health check](docs/evidence/docker-compose-terminal-health.png)
+
+![Git release history](docs/evidence/git-release-history.png)
+</details>
 
 ## Repository Structure
 
